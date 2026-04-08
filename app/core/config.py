@@ -49,6 +49,11 @@ SMTP_TO: str = os.getenv("SMTP_TO", "")  # comma-separated recipients
 # Base URL for confirmation links in emails (no trailing slash)
 BASE_URL: str = os.getenv("BASE_URL", "http://localhost:8000").rstrip("/")
 
+# Optional: show last GitHub Actions ingest time on homepage (e.g. butschas-code/shoppinghelperproduction)
+GITHUB_REPOSITORY: str = os.getenv("GITHUB_REPOSITORY", "").strip()
+GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN", "").strip()
+GITHUB_WORKFLOW_FILE: str = os.getenv("GITHUB_WORKFLOW_FILE", "daily-ingest.yml").strip()
+
 # ---------------------------------------------------------------------------
 # App / admin (production: set ADMIN_SECRET; never enable ALLOW_INSECURE_ADMIN)
 # ---------------------------------------------------------------------------

@@ -15,14 +15,6 @@
     <main class="home-main app-wrap home-main--flow">
         {% include "_chrome_header.html" %}
 
-        <nav class="home-quick-nav" aria-label="{{ t('home.flow_aria') }}">
-            <a class="home-quick-nav__link" href="#snapshot">{{ t("home.nav_today") }}</a>
-            <span class="home-quick-nav__dot" aria-hidden="true"></span>
-            <a class="home-quick-nav__link home-quick-nav__link--primary" href="#compare-actions">{{ t("home.nav_compare") }}</a>
-            <span class="home-quick-nav__dot" aria-hidden="true"></span>
-            <a class="home-quick-nav__link" href="#newsletter">{{ t("home.nav_email") }}</a>
-        </nav>
-
         <section class="home-hero-band" aria-labelledby="hero-heading">
             <div class="hero hero-split">
                 <div class="hero-content">
@@ -89,6 +81,7 @@
                     <p class="cheapest-updated">{% if total_products %}{{ t("cheapest.products_tracked", n=total_products) }}{% else %}{{ t("products_tracked_fallback") }}{% endif %}</p>
                 </div>
             </div>
+            <p class="cheapest-basis">{{ t("cheapest.basis") }}</p>
         </section>
 
         <section id="compare-actions" class="home-compare-panel" aria-labelledby="compare-panel-heading">
@@ -121,31 +114,10 @@
                             <label for="items" class="sr-only">{{ t("shopping.label") }}</label>
                             <textarea id="items" name="items" class="shopping-input" placeholder="{{ t('shopping.placeholder') }}" rows="5"></textarea>
                             <button type="submit" class="shopping-btn">{{ t("shopping.submit") }}</button>
-                            <p class="shopping-microcopy">{{ t("shopping.microcopy") }}</p>
                         </form>
                     </div>
                 </div>
             </div>
-        </section>
-
-        <section class="how-section home-how" aria-labelledby="how-title">
-            <h2 id="how-title" class="how-title how-title--section">{{ t("how.title") }}</h2>
-            <ol class="how-timeline">
-                <li class="how-timeline__item">
-                    <span class="how-timeline__num" aria-hidden="true">1</span>
-                    <span class="how-timeline__text">{{ t("how.step1") }}</span>
-                </li>
-                <li class="how-timeline__item how-timeline__item--connector" aria-hidden="true"></li>
-                <li class="how-timeline__item">
-                    <span class="how-timeline__num" aria-hidden="true">2</span>
-                    <span class="how-timeline__text">{{ t("how.step2") }}</span>
-                </li>
-                <li class="how-timeline__item how-timeline__item--connector" aria-hidden="true"></li>
-                <li class="how-timeline__item">
-                    <span class="how-timeline__num" aria-hidden="true">3</span>
-                    <span class="how-timeline__text">{{ t("how.step3") }}</span>
-                </li>
-            </ol>
         </section>
 
         <section class="newsletter-section" id="newsletter" aria-labelledby="newsletter-heading">

@@ -26,6 +26,7 @@ from app.services.basket_index import (
 )
 from app.services.history import get_price_history, get_price_stats
 from app.services.ingest import run_full_ingest
+from app.services.ingest_display_time import get_hero_refresh_display
 from app.services.newsletter import confirm_subscriber, get_newsletter_admin_stats, subscribe as newsletter_subscribe
 from app.services.pricing import (
     compute_basket,
@@ -168,8 +169,6 @@ def home(
     db: Session = Depends(get_db),
     newsletter: str | None = Query(None),
 ) -> HTMLResponse:
-    from datetime import datetime, timezone
-
     from sqlalchemy import func
 
     updated = get_last_updated(db)
@@ -208,22 +207,8 @@ def home(
         or 0
     )
 
-    # Human-friendly "Updated today" for hero
-    hero_updated_raw = updated.get(cheapest_retailer_id) if cheapest_retailer_id else None
-    updated_today_label = "—"
-    updated_date_is_today = False
-    if hero_updated_raw and hero_updated_raw != "never":
-        try:
-            # Format is "YYYY-MM-DD HH:MM"
-            dt = datetime.strptime(hero_updated_raw[:16], "%Y-%m-%d %H:%M")
-            today = datetime.now(timezone.utc).date()
-            updated_date_is_today = dt.date() == today
-            if updated_date_is_today:
-                updated_today_label = dt.strftime("%H:%M")
-            else:
-                updated_today_label = dt.strftime("%d %b %H:%M")
-        except ValueError:
-            updated_today_label = hero_updated_raw
+    # Hero: last ingest time — GitHub Actions daily-ingest when configured, else latest DB scrape (Riga)
+    updated_today_label, updated_date_is_today, _ingest_time_source = get_hero_refresh_display(db)
 
     return templates.TemplateResponse(
         "index.html",
@@ -241,7 +226,6 @@ def home(
             cheapest_total=cheapest_total,
             savings=savings,
             total_products=total_products,
-            hero_updated=updated.get(cheapest_retailer_id, "—") if cheapest_retailer_id else "—",
             updated_today_label=updated_today_label,
             updated_date_is_today=updated_date_is_today,
             newsletter_flash=newsletter,
