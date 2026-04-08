@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#F7F8FA">
+    <meta name="theme-color" content="#F7F8F7">
     <title>{{ t("home.title") }}</title>
     <link rel="alternate" hreflang="lv" href="{{ hreflang_lv_url }}">
     <link rel="alternate" hreflang="en" href="{{ hreflang_en_url }}">
@@ -15,18 +15,37 @@
     <main class="home-main app-wrap">
         {% include "_chrome_header.html" %}
 
-        <section class="hero">
-            <p class="hero-label">{{ t("hero.credibility") }}</p>
-            <h1 class="hero-headline">{{ t("hero.headline") }}</h1>
-            <p class="hero-subline">{{ t("hero.subline") }}</p>
-            <p class="hero-live-row">
-                <span class="cw-badge cw-badge--live"><span class="cw-badge__dot" aria-hidden="true"></span>{{ t("hero.live") }}</span>
-            </p>
-            {% if updated_today_label != "—" %}
-            <p class="hero-updated" aria-label="{{ t('sr.data_freshness') }}">
-                {% if updated_date_is_today %}{{ t("hero.updated_today", time=updated_today_label) }}{% else %}{{ t("hero.updated_at", time=updated_today_label) }}{% endif %}
-            </p>
-            {% endif %}
+        <section class="hero hero-split">
+            <div class="hero-content">
+                <p class="hero-label">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="vertical-align:-2px;margin-right:4px"><circle cx="8" cy="8" r="7" stroke="#3AA655" stroke-width="1.5"/><path d="M5 8l2 2 4-4" stroke="#3AA655" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    {{ t("hero.credibility") }}
+                </p>
+                <h1 class="hero-headline">{{ t("hero.headline") }}</h1>
+                <p class="hero-subline">{{ t("hero.subline") }}</p>
+                <p class="hero-live-row">
+                    <span class="cw-badge cw-badge--live"><span class="cw-badge__dot" aria-hidden="true"></span>{{ t("hero.live") }}</span>
+                </p>
+                {% if updated_today_label != "—" %}
+                <p class="hero-updated" aria-label="{{ t('sr.data_freshness') }}">
+                    {% if updated_date_is_today %}{{ t("hero.updated_today", time=updated_today_label) }}{% else %}{{ t("hero.updated_at", time=updated_today_label) }}{% endif %}
+                </p>
+                {% endif %}
+            </div>
+            <div class="hero-illustration" aria-hidden="true">
+                <svg viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg" width="240" height="200">
+                    <rect x="40" y="70" width="160" height="110" rx="16" fill="#3AA655" fill-opacity="0.08"/>
+                    <path d="M60 80 C60 65 90 50 120 50 C150 50 180 65 180 80" stroke="#3AA655" stroke-width="3" stroke-linecap="round" fill="none"/>
+                    <circle cx="80" cy="120" r="18" fill="#F29B3E" fill-opacity="0.25"/>
+                    <circle cx="80" cy="120" r="12" fill="#F29B3E" fill-opacity="0.45"/>
+                    <circle cx="130" cy="110" r="14" fill="#3AA655" fill-opacity="0.3"/>
+                    <circle cx="130" cy="110" r="9" fill="#3AA655" fill-opacity="0.5"/>
+                    <rect x="155" y="100" width="24" height="32" rx="4" fill="#F29B3E" fill-opacity="0.18"/>
+                    <rect x="160" y="105" width="14" height="22" rx="2" fill="#F29B3E" fill-opacity="0.35"/>
+                    <ellipse cx="105" cy="140" rx="10" ry="14" fill="#7BC47F" fill-opacity="0.35"/>
+                    <path d="M105 126 C108 120 110 122 107 128" stroke="#3AA655" stroke-width="1.5" fill="none"/>
+                </svg>
+            </div>
         </section>
 
         <section class="cheapest-section" aria-label="{{ t('sr.cheapest_today') }}">

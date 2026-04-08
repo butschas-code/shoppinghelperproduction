@@ -20,6 +20,7 @@ from app.services.match import (
     similarity_score,
 )
 from app.services.normalize import tokenize
+from app.services.query_parser import parse_grocery_query
 from app.services.search_synonyms import expand_query_for_search
 
 SEARCH_THRESHOLD = 0.25
@@ -140,23 +141,24 @@ def compute_basket(db: Session, items: list[str]) -> list[BasketResult]:
         )
 
         for item_query in items:
-            expanded_item = expand_query_for_search(item_query)
+            pq = parse_grocery_query(item_query)
+            core_for_match = pq.expanded_core or pq.core_terms or item_query
             primary: list[tuple[ProductOffer, float, float, str]] = []
             weak: list[tuple[ProductOffer, float, float, str]] = []
 
-            single_word = len(tokenize(item_query)) == 1
+            single_word_core = len(tokenize(pq.core_terms)) <= 1
 
             for offer in r_offers:
-                score, confidence = match_product(expanded_item, offer.title)
+                score, confidence = match_product(
+                    core_for_match, offer.title, parsed=pq,
+                )
                 if confidence == CONFIDENCE_REJECT:
                     continue
                 if score < BASKET_THRESHOLD:
                     continue
 
-                # For single-word generic queries, apply household preference
-                # scoring to pick the most typical product variant.
-                if single_word:
-                    h_score = household_score(expanded_item, offer.title)
+                if single_word_core:
+                    h_score = household_score(core_for_match, offer.title)
                     rank_score = score * (0.6 + 0.4 * h_score)
                 else:
                     rank_score = score

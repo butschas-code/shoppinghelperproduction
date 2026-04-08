@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import ProductOffer, Retailer
 from app.services.normalize import normalize_text, tokenize_for_match, trigrams
+from app.services.query_parser import parse_grocery_query
 from app.services.search_synonyms import expand_query_for_search
 from app.services.product_intent import (
     detect_product_intent,
@@ -340,10 +341,11 @@ def search_products_multi(
         return flat, None, structured
 
     fallback_message = "fallback"
-    expanded = expand_query_for_search(q)
+    pq = parse_grocery_query(q)
+    search_text = pq.expanded_core or expand_query_for_search(q)
     scored: list[tuple[ProductOffer, float]] = []
     for offer in offers:
-        s = _fuzzy_score(expanded, offer)
+        s = _fuzzy_score(search_text, offer)
         if s < SEARCH_THRESHOLD:
             continue
         scored.append((offer, s))

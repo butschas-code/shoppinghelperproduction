@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#F7F8FA">
+    <meta name="theme-color" content="#F7F8F7">
     <title>{{ t("basket.title") }}</title>
     <link rel="alternate" hreflang="lv" href="{{ hreflang_lv_url }}">
     <link rel="alternate" hreflang="en" href="{{ hreflang_en_url }}">
@@ -43,7 +43,7 @@
                 {% endif %}
             {% endfor %}
 
-            <p style="color:var(--gray-500);font-size:.9rem;margin-bottom:1rem;">
+            <p class="basket-comparing-note">
                 {{ t("comparing", n=item_list|length, m=eligible|length) }}
             </p>
 
@@ -107,7 +107,7 @@
             {% endfor %}
 
             {% if promo %}
-            <h3 style="margin:1.5rem 0 .75rem;color:var(--gray-700);font-size:1rem;">{{ t("promo_section_heading") }}</h3>
+            <h3 class="basket-promo-heading">{{ t("promo_section_heading") }}</h3>
             {% for r in promo %}
             <div class="basket-card promo-card">
                 <div class="retailer-header">
@@ -115,7 +115,7 @@
                         {{ r.retailer_name }}
                         <span class="catalog-badge catalog-promo">{{ t("catalog.promo_only") }}</span>
                     </h3>
-                    <span class="basket-total" style="color:var(--gray-500);">&euro;{{ '%.2f'|format(r.total) }}</span>
+                    <span class="basket-total basket-total--muted">&euro;{{ '%.2f'|format(r.total) }}</span>
                 </div>
                 <div class="promo-warning">
                     {{ t("promo_warning") }}
@@ -164,7 +164,7 @@
         {% elif items %}
             <div class="empty-state card">
                 <p>{{ t("no_data_run_ingest") }}</p>
-                <p style="margin-top:.5rem;font-size:.9rem;">
+                <p class="basket-ingest-hint">
                     <code>python -m app.ingest_cli run</code>
                 </p>
             </div>

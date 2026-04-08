@@ -52,42 +52,56 @@ PRODUCT_INTENTS: dict[str, dict[str, list[str]]] = {
             "sierin", "desert", "baton", "konfekt",
             "sokolad", "cepum", "sald", "krem", "kakao",
             "iebiezinat", "kondenset", "jogurt", "sviest",
+            "desa", "desin", "des",
+            "krauksk", "cips",
+            "pudin", "merce", "kokteil",
+            "cal",
         ],
     },
     "yogurt": {
         "terms": ["yogurt", "yoghurt", "jogurts", "jogurti"],
         "primary_roots": ["jogurt", "jogurts", "yogurt", "yoghurt"],
-        "exclude_roots": ["sokolad", "baton", "konfekt", "saldējums", "saldejums", "zupa"],
+        "exclude_roots": [
+            "sokolad", "baton", "konfekt", "saldējums", "saldejums", "zupa",
+            "desa", "cips", "krauksk",
+        ],
     },
     "avocado": {
         "terms": ["avocado", "avokado", "avo"],
         "primary_roots": ["avokado", "avocado"],
-        "exclude_roots": [],
+        "exclude_roots": ["ella", "merce", "salsa", "cips", "krauksk"],
     },
     "chicken": {
         "terms": ["chicken", "vista", "vistas", "fileja"],
         "primary_roots": ["vista", "vistas", "fileja", "chicken"],
-        "exclude_roots": ["cips", "zupa", "garsa", "buljons", "saldējums", "saldejums"],
+        "exclude_roots": [
+            "cips", "zupa", "garsa", "buljons", "saldējums", "saldejums",
+            "desa", "desin", "cisin", "pastet", "pelmen", "frikadel",
+            "naget", "konserv", "krauksk",
+        ],
     },
     "cheese": {
         "terms": ["cheese", "siers", "sieri"],
         "primary_roots": ["siers", "sieri", "cheese"],
-        "exclude_roots": ["sierins", "ziepes", "biezpiens"],
+        "exclude_roots": [
+            "sierins", "ziepes", "biezpiens",
+            "cips", "krauksk", "desa", "pelmen", "longchip",
+        ],
     },
     "eggs": {
         "terms": ["eggs", "egg", "olas", "ola"],
         "primary_roots": ["olas", "ola", "eggs", "egg"],
-        "exclude_roots": ["majonez", "cepum", "desert"],
+        "exclude_roots": ["majonez", "cepum", "desert", "pudin"],
     },
     "bread": {
         "terms": ["bread", "maize", "maizite", "rupjmaize"],
         "primary_roots": ["maize", "maizite", "rupjmaize", "bread"],
-        "exclude_roots": ["flakes", "ziepes", "milti"],
+        "exclude_roots": ["flakes", "ziepes", "milti", "mikla"],
     },
     "rice": {
         "terms": ["rice", "rīsi", "risi", "basmati", "jasmin"],
         "primary_roots": ["risi", "rice", "basmati", "jasmin"],
-        "exclude_roots": ["kuka", "pudins", "flakes"],
+        "exclude_roots": ["kuka", "pudins", "flakes", "desa", "cips"],
     },
     "butter": {
         "terms": ["butter", "sviests"],
@@ -97,12 +111,18 @@ PRODUCT_INTENTS: dict[str, dict[str, list[str]]] = {
     "banana": {
         "terms": ["banana", "bananas", "banāni", "banani"],
         "primary_roots": ["banani", "banana", "banans"],
-        "exclude_roots": ["kuka", "maize", "dzeriens", "cipsi"],
+        "exclude_roots": [
+            "kuka", "maize", "dzeriens", "cipsi", "krauksk",
+            "sokolad", "saldejums", "konfekt", "baton",
+        ],
     },
     "apple": {
         "terms": ["apple", "apples", "āboli", "aboli"],
         "primary_roots": ["aboli", "apple"],
-        "exclude_roots": ["sula", "dzeriens", "cipsi"],
+        "exclude_roots": [
+            "sula", "dzeriens", "cipsi", "krauksk",
+            "kuka", "saldejums", "konfekt", "baton",
+        ],
     },
     "dish_soap": {
         "terms": ["dish soap", "trauku", "trauku mazg", "trauku mazgāšanas"],
@@ -122,12 +142,18 @@ PRODUCT_INTENTS: dict[str, dict[str, list[str]]] = {
     "coffee": {
         "terms": ["coffee", "kafija"],
         "primary_roots": ["kafija", "coffee", "graudi", "malts"],
-        "exclude_roots": ["dzeriens", "gatavs", "ledus"],
+        "exclude_roots": [
+            "dzeriens", "gatavs", "ledus",
+            "konfekt", "cepum", "saldejums", "baton",
+        ],
     },
     "tea": {
         "terms": ["tea", "teja", "tēja"],
         "primary_roots": ["teja", "tea"],
-        "exclude_roots": ["dzeriens", "ledus"],
+        "exclude_roots": [
+            "dzeriens", "ledus",
+            "konfekt", "cepum", "saldejums",
+        ],
     },
     "water": {
         "terms": ["water", "ūdens", "udens"],
@@ -142,47 +168,47 @@ PRODUCT_INTENTS: dict[str, dict[str, list[str]]] = {
     "pasta": {
         "terms": ["pasta", "makaroni", "spageti", "penne"],
         "primary_roots": ["makaroni", "spageti", "penne", "pasta"],
-        "exclude_roots": ["merce", "sauce"],
+        "exclude_roots": ["merce", "sauce", "zupa"],
     },
     "potatoes": {
         "terms": ["potatoes", "potato", "kartupeļi", "kartupeli"],
         "primary_roots": ["kartupeli", "potato", "potatoes"],
-        "exclude_roots": ["cipsi", "chips", "milti"],
+        "exclude_roots": ["cipsi", "chips", "milti", "krauksk", "pire"],
     },
     "tomato": {
         "terms": ["tomato", "tomatoes", "tomāti", "tomati"],
         "primary_roots": ["tomati", "tomato"],
-        "exclude_roots": [],
+        "exclude_roots": ["merce", "kecup", "sula", "konserv", "pasta"],
     },
     "onion": {
         "terms": ["onion", "onions", "sīpoli", "sipoli"],
         "primary_roots": ["sipoli", "onion"],
-        "exclude_roots": [],
+        "exclude_roots": ["cips", "krauksk", "merce"],
     },
     "flour": {
         "terms": ["flour", "milti"],
         "primary_roots": ["milti", "flour"],
-        "exclude_roots": ["kuka", "maize"],
+        "exclude_roots": ["kuka", "maize", "cepum"],
     },
     "oil": {
         "terms": ["oil", "eļļa", "ella"],
         "primary_roots": ["ella", "oil"],
-        "exclude_roots": [],
+        "exclude_roots": ["filtr", "motor"],
     },
     "salt": {
         "terms": ["salt", "sāls", "sals"],
         "primary_roots": ["sals", "salt"],
-        "exclude_roots": ["desert"],
+        "exclude_roots": ["desert", "cips", "krauksk"],
     },
     "sugar": {
         "terms": ["sugar", "cukurs"],
         "primary_roots": ["cukurs", "sugar"],
-        "exclude_roots": ["aizvietotaj", "saldejums"],
+        "exclude_roots": ["aizvietotaj", "saldejums", "dzeriens", "sirup"],
     },
     "chocolate": {
         "terms": ["chocolate", "šokolāde", "sokolade"],
         "primary_roots": ["sokolade", "chocolate"],
-        "exclude_roots": ["merce", "sula"],
+        "exclude_roots": ["merce", "sula", "dzeriens", "saldejums"],
     },
     "cookies": {
         "terms": ["cookies", "biscuits", "cepumi"],
@@ -207,17 +233,25 @@ PRODUCT_INTENTS: dict[str, dict[str, list[str]]] = {
     "fish": {
         "terms": ["fish", "zivis", "zivs"],
         "primary_roots": ["zivis", "zivs", "fish", "lasi", "salmon"],
-        "exclude_roots": ["ella", "desert"],
+        "exclude_roots": ["ella", "desert", "konserv", "zupa", "buljons", "cips"],
     },
     "beef": {
         "terms": ["beef", "liellops", "gala"],
         "primary_roots": ["gala", "liellops", "beef"],
-        "exclude_roots": ["vista", "cuka", "zivis"],
+        "exclude_roots": [
+            "vista", "cuka", "zivis",
+            "desa", "cisin", "pastet", "pelmen", "konserv",
+            "cips", "krauksk", "buljons",
+        ],
     },
     "pork": {
         "terms": ["pork", "cūka", "cukas"],
         "primary_roots": ["cukas", "cūka", "pork"],
-        "exclude_roots": ["vista", "zivis"],
+        "exclude_roots": [
+            "vista", "zivis",
+            "desa", "cisin", "pastet", "pelmen", "konserv",
+            "cips", "krauksk", "buljons",
+        ],
     },
     "minced_meat": {
         "terms": ["minced", "ground meat", "malta gaļa", "malta gala", "farš", "fars"],

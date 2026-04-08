@@ -1,5 +1,5 @@
-"""Product matching with category-aware keyword filtering and product-type
-penalty system.
+"""Product matching with category-aware keyword filtering, product-type
+penalty system, and structured-attribute scoring.
 
 Two entry points:
 - similarity_score()  – general fuzzy search (for /search)
@@ -8,13 +8,24 @@ Two entry points:
 The penalty system prevents generic searches like "vista" (chicken) from
 matching processed products like "vistas pastēte" (chicken pate) when
 real/primary products (chicken fillets, legs, etc.) are available.
+
+When the explicit KEYWORD_FILTER doesn't cover a query the system falls
+back to product-intent detection so that ANY known product type (milk,
+avocado, fish, toilet paper…) gets precision filtering automatically.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from app.services.normalize import normalize_text, tokenize, tokenize_for_match, trigrams
+from app.services.normalize import (
+    normalize_text,
+    stem_latvian_token,
+    tokenize,
+    tokenize_for_match,
+    trigrams,
+)
+from app.services.query_parser import ParsedQuery, attribute_boost, parse_grocery_query
 
 # ---------------------------------------------------------------------------
 # Grocery keyword filter
@@ -24,23 +35,28 @@ from app.services.normalize import normalize_text, tokenize, tokenize_for_match,
 # for lookup when tokenize_for_match is used (piens/piena → pien).
 # ---------------------------------------------------------------------------
 KEYWORD_FILTER: dict[str, list[str]] = {
-    # --- dairy (stems + forms) ---
+    # ── dairy (stems + forms) ──
     "pien":      ["pien"],
     "piens":     ["pien"],
     "piena":     ["pien"],
     "pienu":     ["pien"],
+    "milk":      ["pien", "milk"],
     "sier":      ["sier"],
     "siers":     ["sier"],
     "siera":     ["sier"],
     "sieru":     ["sier"],
+    "cheese":    ["sier", "cheese"],
     "jogurt":    ["jogurt"],
     "jogurts":   ["jogurt"],
     "jogurta":   ["jogurt"],
     "jogurtu":   ["jogurt"],
+    "yogurt":    ["jogurt", "yogurt", "yoghurt"],
+    "yoghurt":   ["jogurt", "yogurt", "yoghurt"],
     "sviest":    ["sviest"],
     "sviests":   ["sviest"],
     "sviesta":   ["sviest"],
     "sviestu":   ["sviest"],
+    "butter":    ["sviest", "butter"],
     "biezpien":  ["biezpien"],
     "biezpiens": ["biezpien"],
     "krejum":    ["krejum"],
@@ -48,91 +64,161 @@ KEYWORD_FILTER: dict[str, list[str]] = {
     "kefir":     ["kefir"],
     "kefirs":    ["kefir"],
     "kefira":    ["kefir"],
-    # --- eggs ---
+    # ── eggs ──
     "ola":   ["ola", "olu"],
     "olas":  ["ola", "olu"],
     "olu":   ["ola", "olu"],
-    # --- bread ---
-    "maiz":  ["maiz"],
+    "eggs":  ["ola", "olu", "egg"],
+    "egg":   ["ola", "olu", "egg"],
+    # ── bread ──
+    "maiz":   ["maiz"],
     "maize":  ["maiz"],
     "maizes": ["maiz"],
     "maizi":  ["maiz"],
-    # --- meat / chicken ---
-    "vist":    ["vist", "cal", "majputn"],
-    "vista":   ["vist", "cal", "majputn"],
-    "vistas":  ["vist", "cal", "majputn"],
+    "bread":  ["maiz", "bread"],
+    # ── meat / chicken ──
+    "vist":     ["vist", "cal", "majputn"],
+    "vista":    ["vist", "cal", "majputn"],
+    "vistas":   ["vist", "cal", "majputn"],
     "vistiena": ["vist", "cal", "majputn"],
-    "gal":     ["gal", "cukg", "liellop", "vist", "cal", "jera", "trus"],
-    "gala":    ["gal", "cukg", "liellop", "vist", "cal", "jera", "trus"],
-    "galas":   ["gal", "cukg", "liellop", "vist", "cal", "jera", "trus"],
+    "chicken":  ["vist", "chicken"],
+    "gal":      ["gal", "cukg", "liellop", "vist", "cal", "jera", "trus"],
+    "gala":     ["gal", "cukg", "liellop", "vist", "cal", "jera", "trus"],
+    "galas":    ["gal", "cukg", "liellop", "vist", "cal", "jera", "trus"],
     "cukgala":  ["cukg"],
-    # --- sausages ---
-    "des":     ["des"],
-    "desas":   ["des"],
-    "desa":    ["des"],
-    "cisin":   ["cisin", "sardel"],
-    "cisini":  ["cisin", "sardel"],
-    "sardel":  ["sardel", "cisin"],
+    "cukgal":   ["cukg"],
+    "beef":     ["liellop", "gal", "beef"],
+    "liellop":  ["liellop"],
+    "pork":     ["cukg", "cuk", "pork"],
+    "malt":     ["malt", "far"],
+    "far":      ["malt", "far"],
+    "minced":   ["malt", "minc"],
+    # ── sausages ──
+    "des":      ["des"],
+    "desas":    ["des"],
+    "desa":     ["des"],
+    "cisin":    ["cisin", "sardel"],
+    "cisini":   ["cisin", "sardel"],
+    "sardel":   ["sardel", "cisin"],
     "sardeles": ["sardel", "cisin"],
-    # --- grains ---
-    "ris":     ["ris"],
-    "risi":    ["ris"],
-    "risu":    ["ris"],
-    "grik":    ["grik"],
-    "griki":   ["grik"],
-    "putraim": ["putraim"],
+    # ── fish ──
+    "zivi":   ["ziv"],
+    "ziv":    ["ziv"],
+    "zivis":  ["ziv"],
+    "fish":   ["ziv", "fish", "lasi", "salmon"],
+    "lasi":   ["lasi", "salmon"],
+    "salmon": ["lasi", "salmon"],
+    # ── grains ──
+    "ris":      ["ris"],
+    "risi":     ["ris"],
+    "risu":     ["ris"],
+    "rice":     ["ris", "rice", "basmat", "jasmin"],
+    "grik":     ["grik"],
+    "griki":    ["grik"],
+    "putraim":  ["putraim"],
     "putraimi": ["putraim"],
-    # --- pasta ---
-    "makaron":  ["makaron"],
-    "makaroni": ["makaron"],
+    # ── pasta ──
+    "makaron":   ["makaron"],
+    "makaroni":  ["makaron"],
     "makaronus": ["makaron"],
-    "pasta":     ["makaron", "past"],
-    # --- vegetables / staples ---
+    "pasta":     ["makaron", "past", "spaget", "penne"],
+    "spaget":    ["spaget"],
+    # ── fruit ──
+    "banan":  ["banan"],
+    "banani": ["banan"],
+    "bananu": ["banan"],
+    "banana": ["banan"],
+    "abol":   ["abol"],
+    "aboli":  ["abol"],
+    "apple":  ["abol", "apple"],
+    "avokado":["avokado", "avocado"],
+    "avocado":["avokado", "avocado"],
+    "tomat":  ["tomat"],
+    "tomati": ["tomat"],
+    "tomato": ["tomat", "tomato"],
+    # ── vegetables ──
     "kartupel":  ["kartupel"],
     "kartupeli": ["kartupel"],
     "kartupelu": ["kartupel"],
-    "banan":     ["banan"],
-    "banani":    ["banan"],
-    "bananu":    ["banan"],
-    "cuk":       ["cuk"],
-    "cukurs":    ["cuk"],
-    "cukura":    ["cuk"],
-    "kafij":     ["kafij"],
-    "kafija":    ["kafij"],
-    "kafiju":    ["kafij"],
-    # --- canned ---
-    "konserv":  ["konserv"],
-    "konservi": ["konserv"],
-    # --- snacks ---
-    "cips":  ["cips"],
-    "cipsi": ["cips"],
-    "cipsu": ["cips"],
-    # --- drinks ---
+    "potato":    ["kartupel", "potato"],
+    "sipol":     ["sipol"],
+    "sipoli":    ["sipol"],
+    "onion":     ["sipol", "onion"],
+    "burkani":   ["burkan"],
+    "burkan":    ["burkan"],
+    "carrot":    ["burkan", "carrot"],
+    "gurk":      ["gurk"],
+    "gurki":     ["gurk"],
+    "cucumber":  ["gurk", "cucumber"],
+    # ── pantry / condiments ──
+    "cukur":  ["cukur"],
+    "cuk":    ["cuk"],
+    "cukurs": ["cukur"],
+    "cukura": ["cukur"],
+    "sugar":  ["cukur", "sugar"],
+    "milt":   ["milt"],
+    "milti":  ["milt"],
+    "flour":  ["milt", "flour"],
+    "ell":    ["ell"],
+    "ella":   ["ell"],
+    "oil":    ["ell", "oil"],
+    "sal":    ["sal"],
+    "sals":   ["sal"],
+    "salt":   ["sal", "salt"],
+    "med":    ["med"],
+    "medus":  ["med"],
+    "honey":  ["med", "honey"],
+    "kafij":  ["kafij"],
+    "kafija": ["kafij"],
+    "kafiju": ["kafij"],
+    "coffee": ["kafij", "coffee"],
+    "tej":    ["tej"],
+    "teja":   ["tej"],
+    "tea":    ["tej", "tea"],
+    # ── sweets ──
+    "sokolad":  ["sokolad", "chocolat"],
+    "sokolade": ["sokolad", "chocolat"],
+    "chocolate":["sokolad", "chocolat"],
+    "cepum":    ["cepum"],
+    "cepumi":   ["cepum"],
+    "cookie":   ["cepum", "cookie", "biscuit"],
+    "cookies":  ["cepum", "cookie", "biscuit"],
+    # ── drinks ──
     "uden":  ["uden"],
     "udens": ["uden"],
+    "water": ["uden", "water"],
     "sul":   ["sul"],
     "sula":  ["sul"],
     "sulas": ["sul"],
     "sulu":  ["sul"],
+    "juice": ["sul", "juice"],
     "limonad":   ["limonad"],
     "limonade":  ["limonad"],
     "limonades": ["limonad"],
-    # --- frozen ---
+    # ── frozen ──
     "saldejum":  ["saldejum"],
     "saldejums": ["saldejum"],
     "pelmen":    ["pelmen"],
     "pelmeni":   ["pelmen"],
+    # ── canned ──
+    "konserv":  ["konserv"],
+    "konservi": ["konserv"],
+    # ── snacks ──
+    "cips":  ["cips"],
+    "cipsi": ["cips"],
+    "cipsu": ["cips"],
+    # ── non-food ──
+    "sampun":  ["sampun", "shampoo"],
+    "shampoo": ["sampun", "shampoo"],
+    "trauk":   ["trauk"],
+    "zobu":    ["zobu"],
 }
 
 
 # ---------------------------------------------------------------------------
 # Product-type penalty system
 #
-# For categories where a generic single-word query (e.g. "vista") could match
-# both primary products (chicken fillets) AND processed/derivative products
-# (chicken pate, chicken sausage), we define penalty tokens.
-#
-# If a product title contains a penalty token, the match is classified as
+# When a product title contains a penalty token the match is classified as
 # CONFIDENCE_WEAK.  The basket engine then prefers primary (non-penalized)
 # matches and rejects weak-only results entirely.
 # ---------------------------------------------------------------------------
@@ -142,64 +228,187 @@ class _CategoryProfile:
     penalty_roots: tuple[str, ...]
 
 
+# Reusable penalty token groups
+_SNACK_ROOTS = ("cips", "krauksk", "uzkod")
+_SWEET_ROOTS = ("konfekt", "baton", "desert", "saldejum", "kuk", "cepum", "pudin")
+_SAUCE_ROOTS = ("merce", "kecup", "sinep")
+_PROCESSED_MEAT = ("des", "cisin", "pastet", "pelmen", "frikadel", "naget", "konserv")
+_DRINK_ROOTS = ("dzerien", "kokteil", "sirup")
+
 _PROFILES: dict[str, _CategoryProfile] = {
-    "chicken": _CategoryProfile(
-        penalty_roots=(
-            "pastet",       # pate
-            "des",          # sausage (desa, desiņas)
-            "cisin",        # hot dogs (cīsiņi)
-            "pelmen",       # dumplings
-            "frikadel",     # meatballs
-            "naget",        # nuggets
-            "uzkod",        # snack
-            "konserv",      # canned
-            "cepam",        # fried (cepampelmeņi)
-            "nudel",        # noodles (nūdeles ar vistas garšu)
-            "cips",         # chips (čipsi ar vistas garšu)
-            "gars",         # "garšu" – flavored, not actual meat
-            "zup",          # soup
-        ),
-    ),
-    "cheese": _CategoryProfile(
-        penalty_roots=(
-            "cips",         # chips (čipsi)
-            "uzkod",        # snack (uzkoda)
-            "kukuruz",      # corn (kukurūzas uzkoda)
-            "kartupel",     # potato (kartupeļu čipsi)
-            "pelmen",       # dumplings (pelmeņi ar sieru)
-            "des",          # sausage (desa ar sieru, desiņas)
-            "doktord",      # compound: doktordesa (doctor's sausage)
-            "nujin",        # sticks (siera nūjiņas)
-            "plaksn",       # crisps (plāksnes)
-            "bumba",        # balls (siera bumbas snack)
-            "longchip",     # Longchips brand
-            "gars",         # flavor (ar siera garšu)
-            "krauksk",      # crunchy snacks (kraukšķi)
-        ),
-    ),
-    "bread": _CategoryProfile(
-        penalty_roots=(
-            "mikl",         # dough (mīkla)
-            "margarin",     # margarine
-        ),
-    ),
-    "rice": _CategoryProfile(
-        penalty_roots=(
-            "des",          # sausage
-            "cisin",        # hot dogs
-        ),
-    ),
+    # ── dairy ──
+    "milk": _CategoryProfile(penalty_roots=(
+        *_PROCESSED_MEAT, *_SNACK_ROOTS, *_SWEET_ROOTS, *_SAUCE_ROOTS,
+        "sokolad", "kakao", "iebiezin", "kondenset",
+        "cal", "zup", "sier",
+    )),
+    "yogurt": _CategoryProfile(penalty_roots=(
+        *_SNACK_ROOTS, *_SWEET_ROOTS, *_SAUCE_ROOTS,
+        "sokolad", "des", "zup",
+    )),
+    "butter": _CategoryProfile(penalty_roots=(
+        "margarin", "ziepe",
+    )),
+    "cheese": _CategoryProfile(penalty_roots=(
+        *_SNACK_ROOTS, *_PROCESSED_MEAT,
+        "kukuruz", "longchip", "gars", "bumba", "plaksn", "nujin",
+    )),
+    # ── eggs ──
+    "eggs": _CategoryProfile(penalty_roots=(
+        "majonez", *_SWEET_ROOTS,
+    )),
+    # ── bread ──
+    "bread": _CategoryProfile(penalty_roots=(
+        "mikl", "margarin",
+    )),
+    # ── meat / poultry ──
+    "chicken": _CategoryProfile(penalty_roots=(
+        *_PROCESSED_MEAT, *_SNACK_ROOTS,
+        "cepam", "nudel", "gars", "zup",
+    )),
+    "beef": _CategoryProfile(penalty_roots=(
+        *_PROCESSED_MEAT, *_SNACK_ROOTS,
+        "zup", "buljons", "gars",
+    )),
+    "pork": _CategoryProfile(penalty_roots=(
+        *_PROCESSED_MEAT, *_SNACK_ROOTS,
+        "zup", "buljons", "gars",
+    )),
+    "minced_meat": _CategoryProfile(penalty_roots=(
+        *_SNACK_ROOTS, "zup", "buljons",
+    )),
+    # ── fish ──
+    "fish": _CategoryProfile(penalty_roots=(
+        *_SNACK_ROOTS, "ell", "konserv", "zup", "buljons",
+    )),
+    # ── grains / staples ──
+    "rice": _CategoryProfile(penalty_roots=(
+        *_PROCESSED_MEAT, *_SNACK_ROOTS,
+    )),
+    "pasta": _CategoryProfile(penalty_roots=(
+        *_SAUCE_ROOTS, "zup",
+    )),
+    "flour": _CategoryProfile(penalty_roots=(
+        *_SWEET_ROOTS, "maiz",
+    )),
+    # ── fruit ──
+    "banana": _CategoryProfile(penalty_roots=(
+        *_SWEET_ROOTS, *_SNACK_ROOTS, *_DRINK_ROOTS,
+        "sokolad",
+    )),
+    "apple": _CategoryProfile(penalty_roots=(
+        *_SWEET_ROOTS, *_SNACK_ROOTS, *_DRINK_ROOTS,
+        "sul", "sokolad",
+    )),
+    "avocado": _CategoryProfile(penalty_roots=(
+        *_SAUCE_ROOTS, "ell", "cips", "salsa",
+    )),
+    # ── vegetables ──
+    "potatoes": _CategoryProfile(penalty_roots=(
+        *_SNACK_ROOTS, "milt", "pire",
+    )),
+    "tomato": _CategoryProfile(penalty_roots=(
+        *_SAUCE_ROOTS, "sul", "konserv", "past",
+    )),
+    "onion": _CategoryProfile(penalty_roots=(
+        *_SNACK_ROOTS, *_SAUCE_ROOTS,
+    )),
+    # ── pantry / condiments ──
+    "sugar": _CategoryProfile(penalty_roots=(
+        "aizvietotaj", *_DRINK_ROOTS,
+    )),
+    "salt": _CategoryProfile(penalty_roots=(
+        *_SNACK_ROOTS,
+    )),
+    "oil": _CategoryProfile(penalty_roots=(
+        "filtr", "motor",
+    )),
+    "coffee": _CategoryProfile(penalty_roots=(
+        *_SWEET_ROOTS, *_DRINK_ROOTS,
+    )),
+    "tea": _CategoryProfile(penalty_roots=(
+        *_SWEET_ROOTS, *_DRINK_ROOTS,
+    )),
+    # ── sweets ──
+    "chocolate": _CategoryProfile(penalty_roots=(
+        *_DRINK_ROOTS, "saldejum",
+    )),
+    "cookies": _CategoryProfile(penalty_roots=()),
+    "ice_cream": _CategoryProfile(penalty_roots=()),
+    # ── drinks ──
+    "water": _CategoryProfile(penalty_roots=(
+        "sul",
+    )),
+    "juice": _CategoryProfile(penalty_roots=(
+        *_SAUCE_ROOTS,
+    )),
+    # ── non-food ──
+    "dish_soap": _CategoryProfile(penalty_roots=(
+        "edien", "zup", "pien",
+    )),
+    "shampoo": _CategoryProfile(penalty_roots=(
+        "edien", "zup",
+    )),
+    "toothpaste": _CategoryProfile(penalty_roots=(
+        "makaron",
+    )),
+    "toilet_paper": _CategoryProfile(penalty_roots=()),
+    "laundry_detergent": _CategoryProfile(penalty_roots=(
+        "trauk", "edien",
+    )),
 }
 
+# Stemmed query token → profile key.  Checked explicitly first; intent
+# detection is used as fallback (see _get_penalty_profile).
 _QUERY_TO_PROFILE: dict[str, str] = {
-    "vist": "chicken", "vista": "chicken", "vistas": "chicken", "vistiena": "chicken",
-    "chicken": "chicken",
+    # dairy
+    "pien": "milk", "piens": "milk", "piena": "milk", "pienu": "milk", "milk": "milk",
+    "jogurt": "yogurt", "jogurts": "yogurt", "jogurta": "yogurt", "jogurtu": "yogurt",
+    "yogurt": "yogurt", "yoghurt": "yogurt",
+    "sviest": "butter", "sviests": "butter", "sviesta": "butter", "sviestu": "butter",
+    "butter": "butter",
     "sier": "cheese", "siers": "cheese", "siera": "cheese", "sieru": "cheese",
     "cheese": "cheese",
-    "maiz": "bread", "maize": "bread", "maizes": "bread", "maizi": "bread",
-    "bread": "bread",
-    "ris": "rice", "risi": "rice", "risu": "rice",
-    "rice": "rice",
+    # eggs
+    "ola": "eggs", "olas": "eggs", "olu": "eggs", "eggs": "eggs", "egg": "eggs",
+    # bread
+    "maiz": "bread", "maize": "bread", "maizes": "bread", "maizi": "bread", "bread": "bread",
+    # meat
+    "vist": "chicken", "vista": "chicken", "vistas": "chicken", "chicken": "chicken",
+    "liellop": "beef", "beef": "beef",
+    "cukas": "pork", "cukgal": "pork", "pork": "pork",
+    "malt": "minced_meat", "far": "minced_meat", "minced": "minced_meat",
+    # fish
+    "zivi": "fish", "ziv": "fish", "fish": "fish", "lasi": "fish", "salmon": "fish",
+    # grains
+    "ris": "rice", "risi": "rice", "risu": "rice", "rice": "rice",
+    "makaron": "pasta", "pasta": "pasta", "spaget": "pasta",
+    "milt": "flour", "flour": "flour",
+    # fruit
+    "banan": "banana", "banana": "banana",
+    "abol": "apple", "apple": "apple",
+    "avokado": "avocado", "avocado": "avocado",
+    "tomat": "tomato", "tomato": "tomato",
+    # vegetables
+    "kartupel": "potatoes", "potato": "potatoes",
+    "sipol": "onion", "onion": "onion",
+    # pantry
+    "cukur": "sugar", "sugar": "sugar",
+    "sal": "salt", "salt": "salt",
+    "ell": "oil", "oil": "oil",
+    "kafij": "coffee", "coffee": "coffee",
+    "tej": "tea", "tea": "tea",
+    "med": "honey",
+    # sweets
+    "sokolad": "chocolate", "sokolade": "chocolate", "chocolate": "chocolate",
+    "cepum": "cookies", "cookie": "cookies", "cookies": "cookies",
+    "saldejum": "ice_cream",
+    # drinks
+    "uden": "water", "water": "water",
+    "sul": "juice", "juice": "juice",
+    # non-food
+    "trauk": "dish_soap", "sampun": "shampoo", "shampoo": "shampoo",
+    "zobu": "toothpaste",
 }
 
 
@@ -212,11 +421,32 @@ def _any_token_starts_with(tokens: set[str], prefix: str) -> bool:
 
 
 def _get_required_roots(query: str) -> list[str] | None:
-    """If any query token (after stem) maps to a known grocery keyword, return required roots."""
+    """Return required title-token roots for *query*.
+
+    First checks the explicit KEYWORD_FILTER (fast dict lookup), then falls
+    back to product-intent detection so that every known product type gets
+    precision filtering without manual KEYWORD_FILTER entries.
+    """
     for token in tokenize_for_match(query):
         roots = KEYWORD_FILTER.get(token)
         if roots is not None:
             return roots
+
+    # Fallback: derive roots from product-intent primary_roots
+    from app.services.product_intent import detect_product_intent, get_intent_config
+
+    intent = detect_product_intent(query)
+    if intent:
+        config = get_intent_config(intent)
+        if config:
+            roots = []
+            for r in config["primary_roots"]:
+                for tok in normalize_text(r).split():
+                    stemmed = stem_latvian_token(tok)
+                    if stemmed and len(stemmed) >= 3 and stemmed not in roots:
+                        roots.append(stemmed)
+            if roots:
+                return roots
     return None
 
 
@@ -229,11 +459,21 @@ def _title_passes_filter(candidate_tokens: set[str], roots: list[str]) -> bool:
 
 
 def _get_penalty_profile(query: str) -> _CategoryProfile | None:
-    """Return the penalty profile if any query token (after stem) maps to a known category."""
+    """Return the penalty profile for *query*.
+
+    Checks the explicit _QUERY_TO_PROFILE mapping first, then falls back to
+    product-intent detection so every known category gets penalties applied.
+    """
     for token in tokenize_for_match(query):
         profile_name = _QUERY_TO_PROFILE.get(token)
         if profile_name is not None:
             return _PROFILES.get(profile_name)
+
+    from app.services.product_intent import detect_product_intent
+
+    intent = detect_product_intent(query)
+    if intent:
+        return _PROFILES.get(intent)
     return None
 
 
@@ -296,39 +536,47 @@ CONFIDENCE_REJECT = "reject"   # failed root filter or below threshold
 BASKET_THRESHOLD = 0.50
 
 
-def match_product(query: str, candidate: str) -> tuple[float, str]:
+def match_product(
+    query: str,
+    candidate: str,
+    parsed: ParsedQuery | None = None,
+) -> tuple[float, str]:
     """Category-aware matching for basket mode.
 
     Returns (score, confidence) where confidence is one of the CONFIDENCE_*
     constants.
 
-    The penalty system applies only when the query is a single generic
-    keyword (e.g. "vista") — multi-word queries like "vistas fileja" bypass
-    penalties because the extra tokens provide enough specificity.
-
-    When a penalty token is found in the product title (e.g. "pastete" in
-    "Vistas pastete Lido 120g"), the match is classified as CONFIDENCE_WEAK.
-    The basket engine then prefers non-penalized (primary) matches and
-    rejects weak-only results.
+    When *parsed* is provided the core product terms are used for similarity
+    (so numbers/units in the raw query don't dilute the score) and attribute
+    bonuses are applied for matching fat-%, volume, or weight.
     """
+    if parsed is None:
+        parsed = parse_grocery_query(query)
+
+    core = parsed.expanded_core or parsed.core_terms or query
+
     c_tokens = set(tokenize_for_match(candidate))
 
-    required_roots = _get_required_roots(query)
+    required_roots = _get_required_roots(core)
 
     if required_roots is not None:
         if not _title_passes_filter(c_tokens, required_roots):
             return 0.0, CONFIDENCE_REJECT
 
-        score = similarity_score(query, candidate)
-        score = max(score, 0.70)
+        score = similarity_score(core, candidate)
+        score = max(score, 0.50)
+        score += attribute_boost(parsed, candidate)
+        score = min(score, 1.0)
 
-        profile = _get_penalty_profile(query)
+        profile = _get_penalty_profile(core)
         if profile is not None and _is_penalized(c_tokens, profile):
             return score, CONFIDENCE_WEAK
 
         return score, _confidence(score)
 
-    score = similarity_score(query, candidate)
+    score = similarity_score(core, candidate)
+    score += attribute_boost(parsed, candidate)
+    score = min(score, 1.0)
     return score, _confidence(score)
 
 
