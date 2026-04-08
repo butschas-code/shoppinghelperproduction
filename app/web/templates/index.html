@@ -12,52 +12,72 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body class="cw-app page-home">
-    <main class="home-main app-wrap">
+    <main class="home-main app-wrap home-main--flow">
         {% include "_chrome_header.html" %}
 
-        <section class="hero hero-split">
-            <div class="hero-content">
-                <p class="hero-label">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="vertical-align:-2px;margin-right:4px"><circle cx="8" cy="8" r="7" stroke="#3AA655" stroke-width="1.5"/><path d="M5 8l2 2 4-4" stroke="#3AA655" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    {{ t("hero.credibility") }}
-                </p>
-                <h1 class="hero-headline">{{ t("hero.headline") }}</h1>
-                <p class="hero-subline">{{ t("hero.subline") }}</p>
-                <p class="hero-live-row">
-                    <span class="cw-badge cw-badge--live"><span class="cw-badge__dot" aria-hidden="true"></span>{{ t("hero.live") }}</span>
-                </p>
-                {% if updated_today_label != "—" %}
-                <p class="hero-updated" aria-label="{{ t('sr.data_freshness') }}">
-                    {% if updated_date_is_today %}{{ t("hero.updated_today", time=updated_today_label) }}{% else %}{{ t("hero.updated_at", time=updated_today_label) }}{% endif %}
-                </p>
-                {% endif %}
-            </div>
-            <div class="hero-illustration" aria-hidden="true">
-                <svg viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg" width="240" height="200">
-                    <rect x="40" y="70" width="160" height="110" rx="16" fill="#3AA655" fill-opacity="0.08"/>
-                    <path d="M60 80 C60 65 90 50 120 50 C150 50 180 65 180 80" stroke="#3AA655" stroke-width="3" stroke-linecap="round" fill="none"/>
-                    <circle cx="80" cy="120" r="18" fill="#F29B3E" fill-opacity="0.25"/>
-                    <circle cx="80" cy="120" r="12" fill="#F29B3E" fill-opacity="0.45"/>
-                    <circle cx="130" cy="110" r="14" fill="#3AA655" fill-opacity="0.3"/>
-                    <circle cx="130" cy="110" r="9" fill="#3AA655" fill-opacity="0.5"/>
-                    <rect x="155" y="100" width="24" height="32" rx="4" fill="#F29B3E" fill-opacity="0.18"/>
-                    <rect x="160" y="105" width="14" height="22" rx="2" fill="#F29B3E" fill-opacity="0.35"/>
-                    <ellipse cx="105" cy="140" rx="10" ry="14" fill="#7BC47F" fill-opacity="0.35"/>
-                    <path d="M105 126 C108 120 110 122 107 128" stroke="#3AA655" stroke-width="1.5" fill="none"/>
-                </svg>
+        <nav class="home-quick-nav" aria-label="{{ t('home.flow_aria') }}">
+            <a class="home-quick-nav__link" href="#snapshot">{{ t("home.nav_today") }}</a>
+            <span class="home-quick-nav__dot" aria-hidden="true"></span>
+            <a class="home-quick-nav__link home-quick-nav__link--primary" href="#compare-actions">{{ t("home.nav_compare") }}</a>
+            <span class="home-quick-nav__dot" aria-hidden="true"></span>
+            <a class="home-quick-nav__link" href="#newsletter">{{ t("home.nav_email") }}</a>
+        </nav>
+
+        <section class="home-hero-band" aria-labelledby="hero-heading">
+            <div class="hero hero-split">
+                <div class="hero-content">
+                    <p class="hero-label">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" class="hero-label__icon"><circle cx="8" cy="8" r="7" stroke="#3AA655" stroke-width="1.5"/><path d="M5 8l2 2 4-4" stroke="#3AA655" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        {{ t("hero.credibility") }}
+                    </p>
+                    <h1 id="hero-heading" class="hero-headline">{{ t("hero.headline") }}</h1>
+                    <p class="hero-subline">{{ t("hero.subline") }}</p>
+                    <div class="hero-actions">
+                        <a href="#compare-actions" class="cw-btn cw-btn--primary hero-cta">{{ t("hero.cta_primary") }}</a>
+                        <p class="hero-live-row">
+                            <span class="cw-badge cw-badge--live"><span class="cw-badge__dot" aria-hidden="true"></span>{{ t("hero.live") }}</span>
+                            {% if updated_today_label != "—" %}
+                            <span class="hero-updated hero-updated--inline" aria-label="{{ t('sr.data_freshness') }}">
+                                {% if updated_date_is_today %}{{ t("hero.updated_today", time=updated_today_label) }}{% else %}{{ t("hero.updated_at", time=updated_today_label) }}{% endif %}
+                            </span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                <div class="hero-illustration" aria-hidden="true">
+                    <svg viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg" width="240" height="200">
+                        <rect x="40" y="70" width="160" height="110" rx="16" fill="#3AA655" fill-opacity="0.08"/>
+                        <path d="M60 80 C60 65 90 50 120 50 C150 50 180 65 180 80" stroke="#3AA655" stroke-width="3" stroke-linecap="round" fill="none"/>
+                        <circle cx="80" cy="120" r="18" fill="#F29B3E" fill-opacity="0.25"/>
+                        <circle cx="80" cy="120" r="12" fill="#F29B3E" fill-opacity="0.45"/>
+                        <circle cx="130" cy="110" r="14" fill="#3AA655" fill-opacity="0.3"/>
+                        <circle cx="130" cy="110" r="9" fill="#3AA655" fill-opacity="0.5"/>
+                        <rect x="155" y="100" width="24" height="32" rx="4" fill="#F29B3E" fill-opacity="0.18"/>
+                        <rect x="160" y="105" width="14" height="22" rx="2" fill="#F29B3E" fill-opacity="0.35"/>
+                        <ellipse cx="105" cy="140" rx="10" ry="14" fill="#7BC47F" fill-opacity="0.35"/>
+                        <path d="M105 126 C108 120 110 122 107 128" stroke="#3AA655" stroke-width="1.5" fill="none"/>
+                    </svg>
+                </div>
             </div>
         </section>
 
-        <section class="cheapest-section" aria-label="{{ t('sr.cheapest_today') }}">
-            <div class="cheapest-card">
-                <p class="cheapest-label">{{ t("cheapest.label") }}</p>
-                <p class="cheapest-store-row">
-                    <span class="cheapest-store">{% if cheapest_retailer_name %}{{ cheapest_retailer_name }}{% else %}—{% endif %}</span>
-                    {% if cheapest_retailer_name %}
-                    <span class="cw-badge cw-badge--best">{{ t("badge.best_basket") }}</span>
+        <div class="home-flow-connector" aria-hidden="true"></div>
+
+        <section id="snapshot" class="home-snapshot cheapest-section" aria-label="{{ t('sr.cheapest_today') }}">
+            <div class="cheapest-card cheapest-card--snapshot">
+                <div class="cheapest-card__lead">
+                    <p class="cheapest-label">{{ t("cheapest.label") }}</p>
+                    <p class="cheapest-store-row">
+                        <span class="cheapest-store">{% if cheapest_retailer_name %}{{ cheapest_retailer_name }}{% else %}—{% endif %}</span>
+                        {% if cheapest_retailer_name %}
+                        <span class="cw-badge cw-badge--best">{{ t("badge.best_basket") }}</span>
+                        {% endif %}
+                    </p>
+                    {% if savings and savings > 0 %}
+                    <p class="cheapest-savings cheapest-savings--big">{{ t("cheapest.savings") }} <span class="cheapest-savings__amount">€{{ "%.2f"|format(savings) }}</span></p>
                     {% endif %}
-                </p>
-                <div class="cheapest-basket">
+                </div>
+                <div class="cheapest-card__rest">
                     <p class="cheapest-basket-title">{{ t("cheapest.basket_title") }}</p>
                     <ul class="cheapest-basket-list">
                         {% for rid, name, total in today_basket_totals %}
@@ -66,32 +86,66 @@
                         <li class="no-data">{{ t("no_basket_data") }}</li>
                         {% endfor %}
                     </ul>
+                    <p class="cheapest-updated">{% if total_products %}{{ t("cheapest.products_tracked", n=total_products) }}{% else %}{{ t("products_tracked_fallback") }}{% endif %}</p>
                 </div>
-                {% if savings and savings > 0 %}
-                <p class="cheapest-savings">{{ t("cheapest.savings") }} €{{ "%.2f"|format(savings) }}</p>
-                {% endif %}
-                <p class="cheapest-updated">{% if total_products %}{{ t("cheapest.products_tracked", n=total_products) }}{% else %}{{ t("products_tracked_fallback") }}{% endif %}</p>
             </div>
         </section>
 
-        <section class="search-first-section" aria-labelledby="search-first-heading">
-            <h2 id="search-first-heading" class="search-first-heading">{{ t("shopping.search_first_heading") }}</h2>
-            <form action="{{ lang_prefix }}/search" method="get" class="search-first-form">
-                <label for="home-search-q" class="sr-only">{{ t("search.button") }}</label>
-                <input type="search" id="home-search-q" name="q" class="search-first-input" placeholder="{{ t('search.placeholder') }}" required>
-                <button type="submit" class="search-first-btn">{{ t("search.button") }}</button>
-            </form>
-            <p class="search-first-micro">{{ t("shopping.search_first_micro") }}</p>
+        <section id="compare-actions" class="home-compare-panel" aria-labelledby="compare-panel-heading">
+            <header class="home-compare-panel__head">
+                <h2 id="compare-panel-heading" class="home-compare-panel__title">{{ t("home.panel_title") }}</h2>
+                <p class="home-compare-panel__sub">{{ t("home.panel_sub") }}</p>
+            </header>
+
+            <div class="home-compare-steps">
+                <div class="home-step">
+                    <div class="home-step__rail" aria-hidden="true"><span class="home-step__badge">1</span>
+                        <span class="home-step__line"></span></div>
+                    <div class="home-step__body">
+                        <h3 class="home-step__title">{{ t("home.step1_title") }}</h3>
+                        <p class="home-step__hint">{{ t("shopping.search_first_micro") }}</p>
+                        <form action="{{ lang_prefix }}/search" method="get" class="search-first-form home-step__form">
+                            <label for="home-search-q" class="sr-only">{{ t("search.button") }}</label>
+                            <input type="search" id="home-search-q" name="q" class="search-first-input" placeholder="{{ t('search.placeholder') }}" required>
+                            <button type="submit" class="search-first-btn">{{ t("search.button") }}</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="home-step">
+                    <div class="home-step__rail" aria-hidden="true"><span class="home-step__badge">2</span></div>
+                    <div class="home-step__body">
+                        <h3 class="home-step__title">{{ t("home.step2_title") }}</h3>
+                        <p class="home-step__hint">{{ t("shopping.label") }}</p>
+                        <form action="{{ lang_prefix }}/basket" method="post" class="shopping-form home-step__form">
+                            <label for="items" class="sr-only">{{ t("shopping.label") }}</label>
+                            <textarea id="items" name="items" class="shopping-input" placeholder="{{ t('shopping.placeholder') }}" rows="5"></textarea>
+                            <button type="submit" class="shopping-btn">{{ t("shopping.submit") }}</button>
+                            <p class="shopping-microcopy">{{ t("shopping.microcopy") }}</p>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </section>
 
-        <section class="shopping-section" aria-labelledby="shopping-heading">
-            <h2 id="shopping-heading" class="shopping-heading">{{ t("shopping.heading") }}</h2>
-            <form action="{{ lang_prefix }}/basket" method="post" class="shopping-form">
-                <label for="items" class="sr-only">{{ t("shopping.label") }}</label>
-                <textarea id="items" name="items" class="shopping-input" placeholder="{{ t('shopping.placeholder') }}" rows="6" autofocus></textarea>
-                <button type="submit" class="shopping-btn">{{ t("shopping.submit") }}</button>
-                <p class="shopping-microcopy">{{ t("shopping.microcopy") }}</p>
-            </form>
+        <section class="how-section home-how" aria-labelledby="how-title">
+            <h2 id="how-title" class="how-title how-title--section">{{ t("how.title") }}</h2>
+            <ol class="how-timeline">
+                <li class="how-timeline__item">
+                    <span class="how-timeline__num" aria-hidden="true">1</span>
+                    <span class="how-timeline__text">{{ t("how.step1") }}</span>
+                </li>
+                <li class="how-timeline__item how-timeline__item--connector" aria-hidden="true"></li>
+                <li class="how-timeline__item">
+                    <span class="how-timeline__num" aria-hidden="true">2</span>
+                    <span class="how-timeline__text">{{ t("how.step2") }}</span>
+                </li>
+                <li class="how-timeline__item how-timeline__item--connector" aria-hidden="true"></li>
+                <li class="how-timeline__item">
+                    <span class="how-timeline__num" aria-hidden="true">3</span>
+                    <span class="how-timeline__text">{{ t("how.step3") }}</span>
+                </li>
+            </ol>
         </section>
 
         <section class="newsletter-section" id="newsletter" aria-labelledby="newsletter-heading">
@@ -121,38 +175,6 @@
                     <p class="newsletter-nospam">{{ t("newsletter.nospam") }}</p>
                 </form>
             </div>
-        </section>
-
-        <section class="how-section" aria-labelledby="how-title">
-            <h2 id="how-title" class="how-title">{{ t("how.title") }}</h2>
-            <ol class="how-steps">
-                <li class="how-step">
-                    <span class="how-num" aria-hidden="true">1</span>
-                    <span class="how-text">{{ t("how.step1") }}</span>
-                </li>
-                <li class="how-step">
-                    <span class="how-num" aria-hidden="true">2</span>
-                    <span class="how-text">{{ t("how.step2") }}</span>
-                </li>
-                <li class="how-step">
-                    <span class="how-num" aria-hidden="true">3</span>
-                    <span class="how-text">{{ t("how.step3") }}</span>
-                </li>
-            </ol>
-        </section>
-
-        <section class="newsletter-inline" aria-labelledby="newsletter-inline-heading">
-            <h2 id="newsletter-inline-heading" class="newsletter-inline-heading">{{ t("newsletter.inline_heading") }}</h2>
-            <p class="newsletter-inline-subtext">{{ t("newsletter.inline_subtext") }}</p>
-            <form action="{{ lang_prefix }}/newsletter" method="post" class="newsletter-inline-form">
-                <label for="newsletter_email_inline" class="sr-only">{{ t("sr.email_savings") }}</label>
-                <input type="email" id="newsletter_email_inline" name="newsletter_email" class="newsletter-inline-input" placeholder="{{ t('newsletter.email_placeholder') }}" required autocomplete="email">
-                <input type="hidden" name="weekly_report" value="1">
-                <input type="hidden" name="price_alerts" value="1">
-                <input type="hidden" name="big_price_drops" value="1">
-                <button type="submit" class="newsletter-inline-btn">{{ t("newsletter.submit") }}</button>
-            </form>
-            <p class="newsletter-inline-nospam">{{ t("newsletter.inline_nospam") }}</p>
         </section>
 
         <footer class="home-footer">

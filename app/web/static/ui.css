@@ -93,6 +93,7 @@
   --shadow-card: var(--cw-shadow);
   --shadow-card-hover: var(--cw-shadow-hover);
   --max-width: 1040px;
+  --home-max: min(1120px, 100%);
   --font-sans: var(--cw-font-body);
 }
 
