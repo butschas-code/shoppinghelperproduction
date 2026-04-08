@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import ProductOffer, Retailer
 from app.services.normalize import normalize_text, tokenize_for_match, trigrams
-from app.services.query_parser import parse_grocery_query
+from app.services.query_parser import parse_grocery_query, passes_attribute_constraints
 from app.services.search_synonyms import expand_query_for_search
 from app.services.product_intent import (
     detect_product_intent,
@@ -72,10 +72,29 @@ class StructuredSearchResult:
     retailers: list[dict[str, Any]]  # retailer_id, retailer_name, best_price, best_title, best_offer, top_items
     full_results: list[ProductSearchHit]
     total_items: int = 0
+    no_attribute_matches: bool = False
 
     def __post_init__(self) -> None:
         if self.total_items == 0 and self.full_results:
             self.total_items = len(self.full_results)
+
+
+def _empty_structured_result(intent_key: str) -> StructuredSearchResult:
+    """Intent + parsed attributes (fat/vol/weight) but nothing in the catalogue matched."""
+    return StructuredSearchResult(
+        product_type=intent_key,
+        cheapest={
+            "retailer_id": "",
+            "retailer_name": "",
+            "best_price": 0.0,
+            "best_title": "",
+            "best_offer": None,
+        },
+        retailers=[],
+        full_results=[],
+        total_items=0,
+        no_attribute_matches=True,
+    )
 
 
 def _get_latest_offers(db: Session) -> list[ProductOffer]:
@@ -198,6 +217,18 @@ def _intent_search(
     if not intent_key:
         return None
 
+    pq = parse_grocery_query(query)
+    has_attr = (
+        pq.fat_pct is not None
+        or pq.volume_ml is not None
+        or pq.weight_g is not None
+    )
+
+    config = get_intent_config(intent_key)
+    exclude_roots_norm: list[str] = []
+    if config and has_attr:
+        exclude_roots_norm = [normalize_text(r) for r in config["exclude_roots"]]
+
     allowed = get_allowed_categories(intent_key)
     if allowed:
         offers = [
@@ -205,10 +236,18 @@ def _intent_search(
             if offer_matches_category(o.category_path, o.category_root, allowed)
         ]
         if not offers:
+            if has_attr:
+                return _empty_structured_result(intent_key)
             return None
 
     scored: list[tuple[ProductOffer, int]] = []
     for offer in offers:
+        if has_attr and not passes_attribute_constraints(
+            pq, offer.title, intent_key,
+            size_text=offer.size_text,
+            exclude_roots=exclude_roots_norm,
+        ):
+            continue
         title_norm = normalize_text(offer.title)
         score = _score_offer(offer, intent_key, title_norm)
         if score < 0:
@@ -216,6 +255,8 @@ def _intent_search(
         scored.append((offer, score))
 
     if not scored:
+        if has_attr:
+            return _empty_structured_result(intent_key)
         return None
 
     scored.sort(key=lambda x: (-x[1], x[0].price))

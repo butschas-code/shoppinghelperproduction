@@ -19,6 +19,7 @@ from app.services.query_parser import (
     ParsedQuery,
     attribute_boost,
     parse_grocery_query,
+    passes_attribute_constraints,
 )
 
 
@@ -95,6 +96,129 @@ class TestAttributeBoost:
     def test_no_attributes_no_boost(self) -> None:
         pq = self._pq()
         assert attribute_boost(pq, "Piens 2.5% 1l") == 0.0
+
+
+# ── strict attribute filter (intent search) ─────────────────────────
+
+class TestPassesAttributeConstraints:
+    """Strict attribute gate — must work for ALL intents, not just milk."""
+
+    # ── milk ────────────────────────────────────────────────────────
+
+    def test_milk_2pct_1l_accepts_plain(self) -> None:
+        pq = parse_grocery_query("1 liter milk 2.0% fat")
+        assert passes_attribute_constraints(pq, "Piens 2% 1l", "milk")
+
+    def test_milk_rejects_flavored_rasens(self) -> None:
+        pq = parse_grocery_query("1 liter milk 2.0% fat")
+        assert not passes_attribute_constraints(
+            pq, "Piens RASĒNS zemeņu 1,5% 200ml", "milk",
+        )
+
+    def test_milk_rejects_wrong_volume(self) -> None:
+        pq = parse_grocery_query("1 liter milk 2.0% fat")
+        assert not passes_attribute_constraints(pq, "Piens 2% 200ml", "milk")
+
+    def test_milk_rejects_griki(self) -> None:
+        pq = parse_grocery_query("1 liter milk 2.0% fat")
+        assert not passes_attribute_constraints(pq, "GOLDEN SUN Griķi 100 g", "milk")
+
+    def test_milk_rejects_wrong_fat(self) -> None:
+        pq = parse_grocery_query("1 liter milk 2.0% fat")
+        assert not passes_attribute_constraints(pq, "PIENS TIP TOP 2.5% 1L", "milk")
+
+    def test_milk_rejects_cottage_cheese(self) -> None:
+        pq = parse_grocery_query("piens 2% 1l")
+        assert not passes_attribute_constraints(pq, "Pilos Biezpiens 180g", "milk")
+
+    def test_milk_rejects_dessert(self) -> None:
+        pq = parse_grocery_query("piens 2% 1l")
+        assert not passes_attribute_constraints(
+            pq, "Piena deserts Monte šok. un lazdu riekstu 55g", "milk",
+        )
+
+    # ── chicken ─────────────────────────────────────────────────────
+
+    def test_chicken_1kg_accepts_fillet(self) -> None:
+        pq = parse_grocery_query("chicken 1kg")
+        assert passes_attribute_constraints(pq, "Vistas fileja 1kg", "chicken")
+
+    def test_chicken_rejects_wrong_weight(self) -> None:
+        pq = parse_grocery_query("chicken 1kg")
+        assert not passes_attribute_constraints(pq, "Vistas fileja 300g", "chicken")
+
+    def test_chicken_rejects_sausage_with_weight(self) -> None:
+        pq = parse_grocery_query("chicken 1kg")
+        assert not passes_attribute_constraints(
+            pq, "Vistas cīsiņi 1kg", "chicken",
+            exclude_roots=["cisin", "desa", "pelmen"],
+        )
+
+    def test_chicken_rejects_chips(self) -> None:
+        pq = parse_grocery_query("chicken 500g")
+        assert not passes_attribute_constraints(
+            pq, "Čipsi vistas garšas 200g", "chicken",
+            exclude_roots=["cips", "krauksk"],
+        )
+
+    def test_chicken_rejects_no_weight_in_title(self) -> None:
+        pq = parse_grocery_query("chicken 1kg")
+        assert not passes_attribute_constraints(pq, "Vistas buljons", "chicken")
+
+    # ── yogurt ──────────────────────────────────────────────────────
+
+    def test_yogurt_500g_accepts_match(self) -> None:
+        pq = parse_grocery_query("yogurt 2.5% 500g")
+        assert passes_attribute_constraints(pq, "Jogurts dabīgais 2.5% 500g", "yogurt")
+
+    def test_yogurt_rejects_wrong_fat(self) -> None:
+        pq = parse_grocery_query("yogurt 2.5% 500g")
+        assert not passes_attribute_constraints(pq, "Jogurts 0.1% 500g", "yogurt")
+
+    def test_yogurt_rejects_wrong_weight(self) -> None:
+        pq = parse_grocery_query("yogurt 2.5% 500g")
+        assert not passes_attribute_constraints(pq, "Jogurts 2.5% 125g", "yogurt")
+
+    # ── cheese ──────────────────────────────────────────────────────
+
+    def test_cheese_rejects_chips_via_exclude(self) -> None:
+        pq = parse_grocery_query("cheese 200g")
+        assert not passes_attribute_constraints(
+            pq, "Siera čipsi 200g", "cheese",
+            exclude_roots=["cips", "krauksk"],
+        )
+
+    def test_cheese_accepts_plain(self) -> None:
+        pq = parse_grocery_query("cheese 200g")
+        assert passes_attribute_constraints(pq, "Siers Tilžas 200g", "cheese")
+
+    # ── rice ────────────────────────────────────────────────────────
+
+    def test_rice_1kg_accepts(self) -> None:
+        pq = parse_grocery_query("rice 1kg")
+        assert passes_attribute_constraints(pq, "Rīsi basmati 1kg", "rice")
+
+    def test_rice_rejects_wrong_weight(self) -> None:
+        pq = parse_grocery_query("rice 1kg")
+        assert not passes_attribute_constraints(pq, "Rīsi 400g", "rice")
+
+    # ── size_text fallback ──────────────────────────────────────────
+
+    def test_accepts_via_size_text_when_title_lacks_volume(self) -> None:
+        pq = parse_grocery_query("juice 1l")
+        assert passes_attribute_constraints(
+            pq, "Sula ābolu", "juice", size_text="1 l",
+        )
+
+    def test_rejects_when_neither_title_nor_size_text_has_volume(self) -> None:
+        pq = parse_grocery_query("juice 1l")
+        assert not passes_attribute_constraints(pq, "Sula ābolu", "juice")
+
+    # ── no attributes = always pass ─────────────────────────────────
+
+    def test_no_attributes_always_passes(self) -> None:
+        pq = parse_grocery_query("milk")
+        assert passes_attribute_constraints(pq, "Anything at all", "milk")
 
 
 # ── match_product (basket matching) ────────────────────────────────

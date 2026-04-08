@@ -347,29 +347,47 @@ def search(
     all_meta = {info.retailer_id: info for info in get_all_retailer_info()}
 
     if structured is not None:
-        ordered = OrderedDict()
-        for r in structured.retailers:
-            ordered[r["retailer_id"]] = r["all_items"]
-        total_results = structured.total_items
-        retailer_count = len(structured.retailers)
-        all_hits_sorted = structured.full_results
-        cheapest_per_retailer = {r["retailer_id"]: r["best_price"] for r in structured.retailers}
-        comparison_rows = [
-            {"retailer_id": r["retailer_id"], "retailer_name": r["retailer_name"], "price": r["best_price"], "is_cheapest": r["retailer_id"] == structured.cheapest["retailer_id"]}
-            for r in structured.retailers
-        ]
-        best_per_retailer = {r["retailer_id"]: r["top_items"] for r in structured.retailers}
-        comparison_data = {
-            "product_type": structured.product_type,
-            "summary": {
-                "cheapest_retailer_id": structured.cheapest["retailer_id"],
-                "cheapest_retailer_name": structured.cheapest["retailer_name"],
-                "cheapest_price": structured.cheapest["best_price"],
-            },
-            "retailers": structured.retailers,
-            "total_items": structured.total_items,
-        }
-        query_product_type = structured.product_type
+        if getattr(structured, "no_attribute_matches", False):
+            ordered = OrderedDict()
+            total_results = 0
+            retailer_count = 0
+            all_hits_sorted = []
+            cheapest_per_retailer = {}
+            comparison_rows = []
+            best_per_retailer = {}
+            comparison_data = {
+                "product_type": structured.product_type,
+                "no_attribute_matches": True,
+                "summary": None,
+                "retailers": [],
+                "total_items": 0,
+            }
+            query_product_type = structured.product_type
+        else:
+            ordered = OrderedDict()
+            for r in structured.retailers:
+                ordered[r["retailer_id"]] = r["all_items"]
+            total_results = structured.total_items
+            retailer_count = len(structured.retailers)
+            all_hits_sorted = structured.full_results
+            cheapest_per_retailer = {r["retailer_id"]: r["best_price"] for r in structured.retailers}
+            comparison_rows = [
+                {"retailer_id": r["retailer_id"], "retailer_name": r["retailer_name"], "price": r["best_price"], "is_cheapest": r["retailer_id"] == structured.cheapest["retailer_id"]}
+                for r in structured.retailers
+            ]
+            best_per_retailer = {r["retailer_id"]: r["top_items"] for r in structured.retailers}
+            comparison_data = {
+                "product_type": structured.product_type,
+                "no_attribute_matches": False,
+                "summary": {
+                    "cheapest_retailer_id": structured.cheapest["retailer_id"],
+                    "cheapest_retailer_name": structured.cheapest["retailer_name"],
+                    "cheapest_price": structured.cheapest["best_price"],
+                },
+                "retailers": structured.retailers,
+                "total_items": structured.total_items,
+            }
+            query_product_type = structured.product_type
     else:
         by_retailer: dict[str, list] = OrderedDict()
         for h in hits:

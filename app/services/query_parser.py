@@ -119,16 +119,32 @@ _TITLE_VOL_RE = re.compile(r"(\d+[.,]?\d*)\s*(ml|l)\b", re.IGNORECASE)
 _TITLE_WT_RE = re.compile(r"(\d+[.,]?\d*)\s*(g|kg)\b", re.IGNORECASE)
 
 
+# Typical milk / cream fat % in titles (avoid matching "12%" nutrition noise).
+_DAIRY_FAT_PCT_RANGE = (0.15, 7.5)
+
+
 def extract_title_fat_pct(title: str) -> float | None:
+    """First % in *dairy fat range* in the title, else first % overall."""
+    in_range: list[float] = []
+    for m in _TITLE_FAT_RE.finditer(title):
+        v = _num(m.group(1))
+        if _DAIRY_FAT_PCT_RANGE[0] <= v <= _DAIRY_FAT_PCT_RANGE[1]:
+            in_range.append(v)
+    if in_range:
+        return in_range[0]
     m = _TITLE_FAT_RE.search(title)
     return _num(m.group(1)) if m else None
 
 
 def extract_title_volume_ml(title: str) -> float | None:
+    """Largest liquid volume in the title (pack size), in ml."""
+    best: float | None = None
     for val_s, unit in _TITLE_VOL_RE.findall(title):
         v = _num(val_s)
-        return v * 1000 if unit.lower() == "l" else v
-    return None
+        ml = v * 1000 if unit.lower() == "l" else v
+        if best is None or ml > best:
+            best = ml
+    return best
 
 
 def extract_title_weight_g(title: str) -> float | None:
@@ -136,6 +152,114 @@ def extract_title_weight_g(title: str) -> float | None:
         v = _num(val_s)
         return v * 1000 if unit.lower() == "kg" else v
     return None
+
+
+# ── strict attribute filter (intent search) ─────────────────────────
+#
+# When the user query contains fat %, volume, or weight, *every* candidate
+# must demonstrably match those numbers.  Applies to ALL product intents
+# (milk, yogurt, chicken, cheese, …) — not just milk.
+
+_FAT_MATCH_TOLERANCE = 0.45   # 2.0% matches 1.55–2.45%
+_SIZE_RATIO_MIN      = 0.85   # 1 L matches down to ~850 ml
+
+# Extra normalized substrings that mark a "milk" title as *not* plain
+# drinking milk.  Supplements the intent's own exclude_roots.
+_MILK_DERIVATIVE_SUBS: frozenset[str] = frozenset({
+    "dzerien",      # piens dzēriens / milk drink
+    "zemen",        # strawberry
+    "sokolad",      # chocolate
+    "sokolade",
+    "grik",         # buckwheat etc.
+    "biezpien",     # cottage cheese
+    "kefir",
+    "jogurt",
+    "jogurts",
+    "monte",        # dessert brand
+    "rasen",        # Rasēns flavored line
+    "vanilla",
+    "kakao",
+    "karamel",
+    "banan",
+    "pudin",
+    "desert",
+})
+
+
+def passes_attribute_constraints(
+    pq: ParsedQuery,
+    title: str,
+    intent_key: str | None,
+    *,
+    size_text: str | None = None,
+    exclude_roots: list[str] | None = None,
+) -> bool:
+    """Hard-gate: when *pq* specifies fat %, volume, or weight the product
+    must match within tolerance **or be rejected**.
+
+    Works for every intent — milk, yogurt, chicken, cheese, etc.
+
+    Parameters
+    ----------
+    size_text : scraped size field (often contains volume / weight even when
+        the title does not).
+    exclude_roots : pre-normalised exclude roots from the intent config;
+        treated as a **hard** reject (not just a scoring penalty) when
+        attributes are present.
+    """
+    has_fat = pq.fat_pct is not None
+    has_vol = pq.volume_ml is not None
+    has_wt  = pq.weight_g is not None
+
+    if not (has_fat or has_vol or has_wt):
+        return True
+
+    raw = title or ""
+    tn  = normalize_text(raw)
+
+    combined = f"{raw} {size_text}" if size_text else raw
+
+    # ── 1. Hard reject on intent exclude_roots ──────────────────────
+    if exclude_roots:
+        for root in exclude_roots:
+            if root and root in tn:
+                return False
+
+    # ── 2. Milk-specific derivative filter (supplements exclude_roots)
+    if intent_key == "milk":
+        for sub in _MILK_DERIVATIVE_SUBS:
+            if sub in tn:
+                return False
+
+    # ── 3. Fat % — must be present and close ────────────────────────
+    if has_fat:
+        tf = extract_title_fat_pct(raw)
+        if tf is None:
+            return False
+        if abs(pq.fat_pct - tf) > _FAT_MATCH_TOLERANCE:
+            return False
+
+    # ── 4. Volume — must be verifiable and within ratio ─────────────
+    if has_vol:
+        tv = extract_title_volume_ml(combined)
+        if tv is None:
+            return False
+        hi, lo = max(pq.volume_ml, tv), min(pq.volume_ml, tv)
+        ratio = lo / hi if hi else 0.0
+        if ratio < _SIZE_RATIO_MIN:
+            return False
+
+    # ── 5. Weight — must be verifiable and within ratio ─────────────
+    if has_wt:
+        tw = extract_title_weight_g(combined)
+        if tw is None:
+            return False
+        hi, lo = max(pq.weight_g, tw), min(pq.weight_g, tw)
+        ratio = lo / hi if hi else 0.0
+        if ratio < _SIZE_RATIO_MIN:
+            return False
+
+    return True
 
 
 def attribute_boost(pq: ParsedQuery, title: str) -> float:

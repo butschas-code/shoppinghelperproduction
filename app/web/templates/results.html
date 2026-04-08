@@ -40,7 +40,11 @@
             </nav>
             {% endif %}
 
-            {% if results_by_retailer and all_hits_sorted is defined %}
+            {% if comparison_data and comparison_data.no_attribute_matches %}
+                <section class="search-attribute-miss card" aria-live="polite">
+                    <p class="search-attribute-miss-text">{{ t("search.no_attribute_matches") }}</p>
+                </section>
+            {% elif results_by_retailer and all_hits_sorted is defined %}
                 {% if search_fallback_message %}
                 <p class="search-fallback-msg">{{ t("search.fallback_similar") }}</p>
                 {% endif %}
@@ -52,7 +56,12 @@
                     <ul class="comparison-rows">
                         {% for r in comparison_data.retailers %}
                         <li class="comparison-row {% if r.retailer_id == comparison_data.summary.cheapest_retailer_id %}comparison-row-cheapest{% endif %}">
-                            <span class="comparison-retailer">{{ r.retailer_name }}</span>
+                            <div class="comparison-row-text">
+                                <span class="comparison-retailer">{{ r.retailer_name }}</span>
+                                {% if r.best_title %}
+                                <span class="comparison-product-title">{{ r.best_title }}</span>
+                                {% endif %}
+                            </div>
                             <span class="comparison-price">€{{ '%.2f'|format(r.best_price) }}{% if r.retailer_id == comparison_data.summary.cheapest_retailer_id %} <span class="comparison-cheapest-badge">{{ t("search.cheapest_badge") }}</span>{% endif %}</span>
                         </li>
                         {% endfor %}
