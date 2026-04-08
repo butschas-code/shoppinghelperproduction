@@ -3,29 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#fbfbfd">
+    <meta name="theme-color" content="#F7F8FA">
     <title>{{ t("search.title", query=query) }}</title>
     <link rel="alternate" hreflang="lv" href="{{ hreflang_lv_url }}">
     <link rel="alternate" hreflang="en" href="{{ hreflang_en_url }}">
     <link rel="alternate" hreflang="x-default" href="{{ hreflang_lv_url }}">
+    <link rel="stylesheet" href="/static/ui.css">
     <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="page-search">
+<body class="cw-app page-search">
     <div class="app-wrap">
-        <header class="site-header">
-            <a href="{{ lang_prefix }}/" class="site-logo">{{ t("site.name") }}</a>
-            <div class="site-header-right">
-                {% include "_lang_switch.html" %}
-                <button type="button" class="basket-trigger" id="basket-trigger" aria-label="{{ t('basket.sidebar_label') }}">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
-                    <span class="basket-count" id="basket-trigger-count" aria-hidden="true">0</span>
-                </button>
-                <nav class="site-nav" aria-label="{{ t('nav.aria') }}">
-                    <a href="{{ lang_prefix }}/search">{{ t("nav.search") }}</a>
-                    <a href="{{ lang_prefix }}/admin">{{ t("nav.admin") }}</a>
-                </nav>
-            </div>
-        </header>
+        {% include "_chrome_header.html" %}
         <header class="search-header">
             <h1 class="search-results-label">{{ t("search.results_for") }} <strong>{{ query }}</strong></h1>
         </header>
@@ -228,23 +216,7 @@
         </main>
     </div>
 
-    <aside id="basket-sidebar" class="basket-sidebar" aria-label="{{ t('basket.sidebar_label') }}" hidden>
-        <div class="basket-sidebar-inner">
-            <h3 class="basket-sidebar-title">{{ t("basket.sidebar_title") }}</h3>
-            <ul id="basket-sidebar-list" class="basket-sidebar-list"></ul>
-            <div id="basket-sidebar-totals" class="basket-sidebar-totals" hidden>
-                <p class="basket-sidebar-totals-title">{{ t("basket.total_per_store") }}</p>
-                <div id="basket-sidebar-totals-rows"></div>
-            </div>
-            <p id="basket-sidebar-total" class="basket-sidebar-total"></p>
-            <form id="basket-sidebar-form" action="{{ lang_prefix }}/basket" method="post" class="basket-sidebar-form">
-                <input type="hidden" name="items" id="basket-sidebar-items-input" value="">
-                <button type="submit" id="basket-sidebar-compare" class="basket-sidebar-compare">{{ t("basket.compare_prices") }}</button>
-            </form>
-            <button type="button" id="basket-sidebar-close" class="basket-sidebar-close" aria-label="{{ t('sr.close') }}">×</button>
-        </div>
-    </aside>
-    <div id="basket-sidebar-backdrop" class="basket-sidebar-backdrop" hidden aria-hidden="true"></div>
+    {% include "_basket_sidebar.html" %}
 
     <script src="/static/lang.js"></script>
     <script src="/static/search-basket.js"></script>

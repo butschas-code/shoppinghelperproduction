@@ -1,0 +1,7 @@
+{# Primary nav: Compare · History · Alerts · Settings + legacy Search/Admin #}
+<nav class="cw-nav site-primary-nav" aria-label="{{ t('nav.primary_aria') }}">
+    <a href="{{ lang_prefix }}/" class="cw-nav__link {% if nav_active == 'compare' %}is-active{% endif %}">{{ t("nav.compare") }}</a>
+    <a href="{{ lang_prefix }}/history" class="cw-nav__link {% if nav_active == 'history' %}is-active{% endif %}">{{ t("nav.history") }}</a>
+    <a href="{{ lang_prefix }}/alerts" class="cw-nav__link {% if nav_active == 'alerts' %}is-active{% endif %}">{{ t("nav.alerts") }}</a>
+    <a href="{{ lang_prefix }}/settings" class="cw-nav__link {% if nav_active == 'settings' %}is-active{% endif %}">{{ t("nav.settings") }}</a>
+</nav>

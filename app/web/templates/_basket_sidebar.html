@@ -1,0 +1,17 @@
+    <aside id="basket-sidebar" class="basket-sidebar" aria-label="{{ t('basket.sidebar_label') }}" hidden>
+        <div class="basket-sidebar-inner">
+            <h3 class="basket-sidebar-title">{{ t("basket.sidebar_title") }}</h3>
+            <ul id="basket-sidebar-list" class="basket-sidebar-list"></ul>
+            <div id="basket-sidebar-totals" class="basket-sidebar-totals" hidden>
+                <p class="basket-sidebar-totals-title">{{ t("basket.total_per_store") }}</p>
+                <div id="basket-sidebar-totals-rows"></div>
+            </div>
+            <p id="basket-sidebar-total" class="basket-sidebar-total"></p>
+            <form id="basket-sidebar-form" action="{{ lang_prefix }}/basket" method="post" class="basket-sidebar-form">
+                <input type="hidden" name="items" id="basket-sidebar-items-input" value="">
+                <button type="submit" id="basket-sidebar-compare" class="basket-sidebar-compare">{{ t("basket.compare_prices") }}</button>
+            </form>
+            <button type="button" id="basket-sidebar-close" class="basket-sidebar-close" aria-label="{{ t('sr.close') }}">×</button>
+        </div>
+    </aside>
+    <div id="basket-sidebar-backdrop" class="basket-sidebar-backdrop" hidden aria-hidden="true"></div>

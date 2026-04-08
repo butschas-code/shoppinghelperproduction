@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="32" viewBox="0 0 200 32" fill="none" aria-hidden="true">
+  <title>CartWise</title>
+  <g transform="translate(0,4)">
+    <path d="M2 9h14l-1.2 9.6A2 2 0 0 1 12.8 21H5.2a2 2 0 0 1-1.98-2.4L2 9Z" stroke="#0B1220" stroke-width="1.75" stroke-linejoin="round"/>
+    <path d="M5 9V7a4 4 0 0 1 8 0v2" stroke="#0B1220" stroke-width="1.75" stroke-linecap="round"/>
+    <rect x="6.25" y="12.5" width="1.75" height="4.5" rx="0.5" fill="#0B1220"/>
+    <rect x="8.75" y="11" width="1.75" height="6" rx="0.5" fill="#0B1220"/>
+    <rect x="11.25" y="10" width="1.75" height="7" rx="0.5" fill="#0B1220"/>
+    <circle cx="15.5" cy="6.5" r="2" fill="#F59E0B"/>
+  </g>
+  <text x="36" y="22" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="600" letter-spacing="-0.01em" fill="#0B1220">CartWise</text>
+</svg>

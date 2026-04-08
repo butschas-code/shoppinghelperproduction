@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <title>CartWise</title>
+  <!-- Basket outline -->
+  <path d="M5 9h14l-1.2 9.6A2 2 0 0 1 15.8 21H8.2a2 2 0 0 1-1.98-2.4L5 9Z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+  <path d="M8 9V7a4 4 0 0 1 8 0v2" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+  <!-- Signal bars inside basket -->
+  <rect x="9.25" y="12.5" width="1.75" height="4.5" rx="0.5" fill="currentColor"/>
+  <rect x="11.75" y="11" width="1.75" height="6" rx="0.5" fill="currentColor"/>
+  <rect x="14.25" y="10" width="1.75" height="7" rx="0.5" fill="currentColor"/>
+  <!-- Live accent dot -->
+  <circle cx="18.5" cy="6.5" r="2" fill="#F59E0B"/>
+</svg>

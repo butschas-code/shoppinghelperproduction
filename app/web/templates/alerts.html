@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#F7F8FA">
+    <title>{{ t("alerts.title") }}</title>
+    <link rel="stylesheet" href="/static/ui.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="cw-app page-static">
+    <div class="app-wrap">
+        {% include "_chrome_header.html" %}
+        <main class="page-static-main">
+            <h1 class="cw-h2 page-static-title">{{ t("alerts.heading") }}</h1>
+            <p class="page-static-lead">{{ t("alerts.lead") }}</p>
+            <div class="cw-card page-static-card">
+                <p class="page-static-body">{{ t("alerts.body") }}</p>
+                <a href="{{ lang_prefix }}/#newsletter" class="cw-btn cw-btn--primary">{{ t("alerts.cta") }}</a>
+            </div>
+            {% if latest_pricing_update %}
+            <p class="data-freshness-line" role="status">{{ latest_pricing_update }}</p>
+            {% endif %}
+        </main>
+    </div>
+    {% include "_basket_sidebar.html" %}
+    <script src="/static/lang.js"></script>
+    <script src="/static/search-basket.js"></script>
+</body>
+</html>

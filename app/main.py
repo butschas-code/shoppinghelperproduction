@@ -48,7 +48,7 @@ class NewsletterSubscribeBody(BaseModel):
     preferences: dict[str, bool] | None = None  # weekly_report, price_alerts, big_price_drops
 
 
-app = FastAPI(title="LV Price Compare", version="0.1.0", debug=config.APP_DEBUG)
+app = FastAPI(title="CartWise", version="0.1.0", debug=config.APP_DEBUG)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "web" / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "web" / "templates"))
 
@@ -96,6 +96,7 @@ def template_context(
     def t(key: str, **kw: object) -> str:
         return t_func(key, lang, **{k: v for k, v in kw.items() if v is not None and isinstance(v, (str, int, float))})
 
+    kwargs.setdefault("nav_active", None)
     return {
         "request": request,
         "lang": lang,
@@ -231,6 +232,7 @@ def home(
             lang=lang,
             path_without_lang_override="/",
             latest_pricing_update=get_latest_pricing_update_label(db, lang),
+            nav_active="compare",
             last_updated=updated,
             retailer_meta=all_meta,
             today_basket_totals=today_totals,
@@ -269,6 +271,66 @@ def newsletter_signup(
     if status == "already_subscribed":
         return RedirectResponse(url=f"/{lang}/?newsletter=already", status_code=303)
     return RedirectResponse(url=f"/{lang}/?newsletter=error", status_code=303)
+
+
+@app.get("/{lang}/compare")
+def compare_redirect(lang: str = Path(..., regex="^(lv|en)$")) -> RedirectResponse:
+    """Compare is the home experience; keep URL for nav parity."""
+    return RedirectResponse(url=f"/{lang}/", status_code=302)
+
+
+@app.get("/{lang}/history", response_class=HTMLResponse)
+def history_page(
+    request: Request,
+    lang: str = Path(..., regex="^(lv|en)$"),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        "history.html",
+        template_context(
+            request,
+            lang=lang,
+            path_without_lang_override="/history",
+            nav_active="history",
+            latest_pricing_update=get_latest_pricing_update_label(db, lang),
+        ),
+    )
+
+
+@app.get("/{lang}/alerts", response_class=HTMLResponse)
+def alerts_page(
+    request: Request,
+    lang: str = Path(..., regex="^(lv|en)$"),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        "alerts.html",
+        template_context(
+            request,
+            lang=lang,
+            path_without_lang_override="/alerts",
+            nav_active="alerts",
+            latest_pricing_update=get_latest_pricing_update_label(db, lang),
+        ),
+    )
+
+
+@app.get("/{lang}/settings", response_class=HTMLResponse)
+def settings_page(
+    request: Request,
+    lang: str = Path(..., regex="^(lv|en)$"),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        "settings.html",
+        template_context(
+            request,
+            lang=lang,
+            path_without_lang_override="/settings",
+            nav_active="settings",
+            latest_pricing_update=get_latest_pricing_update_label(db, lang),
+        ),
+    )
 
 
 @app.get("/{lang}/newsletter/confirm")
