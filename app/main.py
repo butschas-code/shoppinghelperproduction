@@ -417,7 +417,7 @@ def search(
             for rid, items in ordered.items()
         }
         comparison_rows = []
-        if cheapest_per_retailer and query_product_type:
+        if cheapest_per_retailer:
             sorted_retailers_by_price = sorted(
                 [(rid, p) for rid, p in cheapest_per_retailer.items() if p is not None],
                 key=lambda x: x[1],

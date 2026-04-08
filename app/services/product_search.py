@@ -330,28 +330,48 @@ def _intent_search(
     )
 
 
-def _fuzzy_score(query_expanded: str, offer: ProductOffer) -> float:
-    """Score 0–1 for fuzzy matching (fallback when no intent)."""
+def _fuzzy_score_single(q_text: str, offer: ProductOffer) -> float:
+    """Score a single query text against an offer (0–1)."""
     text = _searchable_text(offer)
-    q_norm = normalize_text(query_expanded)
+    q_norm = normalize_text(q_text)
     c_norm = normalize_text(text)
     if not q_norm or not c_norm:
         return 0.0
+
+    # Any query word appears as a substring in the product text? High score.
+    q_words = q_norm.split()
+    for w in q_words:
+        if len(w) >= 3 and w in c_norm:
+            return 0.95
+
     if q_norm in c_norm or c_norm in q_norm:
         return 0.95
-    q_tokens = set(tokenize_for_match(query_expanded))
+
+    q_tokens = set(tokenize_for_match(q_text))
     c_tokens = set(tokenize_for_match(text))
     if not q_tokens:
         return 0.0
     overlap = len(q_tokens & c_tokens) / len(q_tokens)
     if overlap >= 1.0:
         return 0.9
-    q_tri = trigrams(query_expanded)
+
+    q_tri = trigrams(q_text)
     c_tri = trigrams(text)
     tri_union = q_tri | c_tri
     tri_sim = len(q_tri & c_tri) / len(tri_union) if tri_union else 0.0
     score = overlap * 0.6 + tri_sim * 0.4
     return min(score, 1.0)
+
+
+def _fuzzy_score(query_expanded: str, offer: ProductOffer, raw_query: str = "") -> float:
+    """Best of expanded-query score and raw-query score."""
+    best = _fuzzy_score_single(query_expanded, offer)
+    if best >= 0.9:
+        return best
+    if raw_query and raw_query != query_expanded:
+        alt = _fuzzy_score_single(raw_query, offer)
+        best = max(best, alt)
+    return best
 
 
 def search_products_multi(
@@ -386,7 +406,7 @@ def search_products_multi(
     search_text = pq.expanded_core or expand_query_for_search(q)
     scored: list[tuple[ProductOffer, float]] = []
     for offer in offers:
-        s = _fuzzy_score(search_text, offer)
+        s = _fuzzy_score(search_text, offer, raw_query=q)
         if s < SEARCH_THRESHOLD:
             continue
         scored.append((offer, s))
