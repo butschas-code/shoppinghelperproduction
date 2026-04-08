@@ -4,6 +4,10 @@
 
 name: Daily ingest
 
+# Use Node 24 for JS-based actions (see GitHub deprecation of Node 20 on runners).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   schedule:
     - cron: "0 5 * * *"
@@ -19,7 +23,7 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Check DATABASE_URL secret
         id: db
@@ -35,7 +39,7 @@ jobs:
 
       - name: Set up Python
         if: steps.db.outputs.configured == 'true'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
