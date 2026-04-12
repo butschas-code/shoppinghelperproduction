@@ -23,12 +23,8 @@ DATABASE_URL: str = _normalize_database_url(os.getenv("DATABASE_URL", "sqlite://
 DATABASE_POOL_RECYCLE: int = int(os.getenv("DATABASE_POOL_RECYCLE", "300"))
 
 # Ingest: rows per INSERT batch (core executemany). Smaller = shorter transactions
-# (helps Neon idle_in_transaction_session_timeout and SSL stability).
+# (helps Neon pooler and SSL stability on large inserts).
 INGEST_COMMIT_BATCH: int = max(1, int(os.getenv("INGEST_COMMIT_BATCH", "150")))
-
-# Postgres: raise server idle-in-transaction limit for this app's sessions (milliseconds).
-# Neon defaults are often ~60s; bulk inserts + ORM can exceed that without smaller batches.
-PG_IDLE_IN_TRANSACTION_MS: int = int(os.getenv("PG_IDLE_IN_TRANSACTION_MS", "900000"))
 
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
