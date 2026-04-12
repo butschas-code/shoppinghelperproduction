@@ -50,9 +50,11 @@ jobs:
           pip install -r requirements.txt
           pip install "playwright>=1.40.0"
 
-      - name: Install Playwright Chromium
+      # Chromium needs OS libraries (libnss3, etc.) on ubuntu-latest; without
+      # --with-deps, pw.chromium.launch often fails and Maxima/Barbora ingest errors.
+      - name: Install Playwright Chromium (with system dependencies)
         if: steps.db.outputs.configured == 'true'
-        run: playwright install chromium
+        run: python -m playwright install --with-deps chromium
 
       - name: Run daily ingest
         if: steps.db.outputs.configured == 'true'
