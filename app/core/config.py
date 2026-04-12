@@ -19,6 +19,13 @@ def _normalize_database_url(url: str) -> str:
 
 DATABASE_URL: str = _normalize_database_url(os.getenv("DATABASE_URL", "sqlite:///prices.db"))
 
+# Postgres (Neon, etc.): recycle pooled connections before idle/proxy timeouts close them.
+DATABASE_POOL_RECYCLE: int = int(os.getenv("DATABASE_POOL_RECYCLE", "300"))
+
+# Ingest: commit every N offers so one retailer does not hold a single huge transaction
+# (reduces "SSL connection has been closed unexpectedly" on long inserts).
+INGEST_COMMIT_BATCH: int = max(1, int(os.getenv("INGEST_COMMIT_BATCH", "1000")))
+
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
 USER_AGENT: str = os.getenv(

@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from app.core import config
 from app.core.logging import get_logger
 from app.db.models import IngestLog, ProductOffer, Retailer
 from app.retailers import get_all_adapters
@@ -56,7 +57,8 @@ def run_full_ingest(db: Session) -> dict[str, dict]:
                 len(offers), meta.id, duration,
             )
 
-            for dto in offers:
+            batch = config.INGEST_COMMIT_BATCH
+            for i, dto in enumerate(offers, start=1):
                 product_type = detect_product_type(dto.title, dto.category_path or dto.category_root)
                 db.add(
                     ProductOffer(
@@ -79,8 +81,10 @@ def run_full_ingest(db: Session) -> dict[str, dict]:
                         category_root=dto.category_root,
                     )
                 )
-
-            db.commit()
+                if i % batch == 0:
+                    db.commit()
+            if len(offers) == 0 or len(offers) % batch != 0:
+                db.commit()
             _upsert_ingest_log(db, today, meta.id, duration, len(offers))
             summary[meta.id] = {
                 "status": "ok",

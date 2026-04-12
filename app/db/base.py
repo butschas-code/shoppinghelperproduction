@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import StaticPool
 
-from app.core.config import DATABASE_URL
+from app.core.config import DATABASE_POOL_RECYCLE, DATABASE_URL
 
 _URL = str(DATABASE_URL)
 _is_sqlite = _URL.startswith("sqlite")
@@ -16,9 +16,19 @@ def _engine_kwargs() -> dict:
         if _is_sqlite_memory:
             kw["poolclass"] = StaticPool
     else:
+        # TCP keepalives + pool_recycle: managed Postgres often drops idle SSL
+        # sessions; long single transactions are handled via INGEST_COMMIT_BATCH.
         kw["pool_pre_ping"] = True
         kw["pool_size"] = 5
         kw["max_overflow"] = 10
+        kw["pool_recycle"] = DATABASE_POOL_RECYCLE
+        kw["connect_args"] = {
+            "connect_timeout": 30,
+            "keepalives": 1,
+            "keepalives_idle": 30,
+            "keepalives_interval": 10,
+            "keepalives_count": 5,
+        }
     return kw
 
 
