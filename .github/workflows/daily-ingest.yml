@@ -61,4 +61,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           LOG_LEVEL: INFO
+          # Shorter Postgres transactions + fresher pooled connections (Neon / SSL drops).
+          INGEST_COMMIT_BATCH: "500"
+          DATABASE_POOL_RECYCLE: "300"
         run: python run_daily_ingest.py
