@@ -88,8 +88,7 @@ def main() -> int:
     alerts = AlertCollector()
 
     try:
-        with get_db_ctx() as db:
-            summary = run_full_ingest(db)
+        summary = run_full_ingest()
     except Exception as exc:
         logger.exception("FATAL: ingestion pipeline crashed")
         elapsed = time.monotonic() - start

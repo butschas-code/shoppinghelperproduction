@@ -497,8 +497,8 @@ def basket(
 # ------------------------------------------------------------------
 
 @app.post("/admin/run-ingest", dependencies=[Depends(require_admin)])
-def admin_run_ingest(db: Session = Depends(get_db)) -> dict:
-    summary = run_full_ingest(db)
+def admin_run_ingest() -> dict:
+    summary = run_full_ingest()
     return {"status": "ok", "summary": summary}
 
 

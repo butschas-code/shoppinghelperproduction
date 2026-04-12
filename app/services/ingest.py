@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core import config
 from app.core.logging import get_logger
 from app.db.models import IngestLog, ProductOffer, Retailer
+from app.db.session import get_db_ctx
 from app.retailers import get_all_adapters
 from app.services.anomaly import detect_anomalies
 from app.services.basket_index import update_basket_index
@@ -25,8 +26,15 @@ def is_retailer_ingest_key(key: str) -> bool:
     return not key.startswith("_")
 
 
-def run_full_ingest(db: Session) -> dict[str, dict]:
-    """Run ingestion for every registered adapter. Returns per-retailer summary."""
+def run_full_ingest() -> dict[str, dict]:
+    """Run ingestion for every registered adapter. Returns per-retailer summary.
+
+    A fresh DB session is opened *after* each retailer's scrape completes so
+    that long-running scrapers (Maxima/Playwright ≈ 40 min) never hold an
+    idle Postgres connection.  Managed Postgres providers (Neon, Supabase,
+    Railway) drop idle SSL sessions in ~5 minutes, which was causing the
+    ``SSL connection has been closed unexpectedly`` errors seen in CI.
+    """
     summary: dict[str, dict] = {}
     now = datetime.now(timezone.utc)
     today = now.strftime("%Y-%m-%d")
@@ -35,33 +43,51 @@ def run_full_ingest(db: Session) -> dict[str, dict]:
         meta = adapter.retailer_meta()
         logger.info("--- Ingesting: %s (%s) ---", meta.name, meta.id)
 
-        existing = db.get(Retailer, meta.id)
-        if not existing:
-            db.add(
-                Retailer(
+        # ── 1. Scrape (no DB connection held) ──────────────────────────
+        t0 = time.monotonic()
+        fetch_error: Exception | None = None
+        offers = []
+        try:
+            offers = adapter.fetch_offers()
+        except Exception as exc:
+            fetch_error = exc
+            logger.exception("Scrape failed for %s", meta.id)
+
+        duration = time.monotonic() - t0
+
+        # ── 2. Write with a fresh connection ───────────────────────────
+        with get_db_ctx() as db:
+            # Ensure the Retailer row exists.
+            if not db.get(Retailer, meta.id):
+                db.add(Retailer(
                     id=meta.id,
                     name=meta.name,
                     country=meta.country,
                     currency=meta.currency,
                     base_url=meta.base_url,
-                )
-            )
-            db.commit()
+                ))
+                db.commit()
 
-        t0 = time.monotonic()
-        try:
-            offers = adapter.fetch_offers()
-            duration = time.monotonic() - t0
+            if fetch_error is not None:
+                _upsert_ingest_log(db, today, meta.id, duration, 0)
+                summary[meta.id] = {
+                    "status": "error",
+                    "error": str(fetch_error),
+                    "duration": round(duration, 1),
+                }
+                continue
+
             logger.info(
-                "Received %d offers from %s in %.1fs",
+                "Received %d offers from %s in %.1fs — writing to DB",
                 len(offers), meta.id, duration,
             )
-
-            batch = config.INGEST_COMMIT_BATCH
-            for i, dto in enumerate(offers, start=1):
-                product_type = detect_product_type(dto.title, dto.category_path or dto.category_root)
-                db.add(
-                    ProductOffer(
+            try:
+                batch = config.INGEST_COMMIT_BATCH
+                for i, dto in enumerate(offers, start=1):
+                    product_type = detect_product_type(
+                        dto.title, dto.category_path or dto.category_root
+                    )
+                    db.add(ProductOffer(
                         retailer_id=meta.id,
                         scraped_at=now,
                         title=dto.title,
@@ -79,58 +105,56 @@ def run_full_ingest(db: Session) -> dict[str, dict]:
                         product_type=product_type or None,
                         category_path=dto.category_path,
                         category_root=dto.category_root,
-                    )
-                )
-                if i % batch == 0:
+                    ))
+                    if i % batch == 0:
+                        db.commit()
+                        logger.info("  … committed %d/%d rows", i, len(offers))
+                if len(offers) == 0 or len(offers) % batch != 0:
                     db.commit()
-            if len(offers) == 0 or len(offers) % batch != 0:
-                db.commit()
-            _upsert_ingest_log(db, today, meta.id, duration, len(offers))
-            summary[meta.id] = {
-                "status": "ok",
-                "count": len(offers),
-                "duration": round(duration, 1),
+                _upsert_ingest_log(db, today, meta.id, duration, len(offers))
+                summary[meta.id] = {
+                    "status": "ok",
+                    "count": len(offers),
+                    "duration": round(duration, 1),
+                }
+            except Exception as exc:
+                logger.exception("DB write failed for %s", meta.id)
+                db.rollback()
+                _upsert_ingest_log(db, today, meta.id, duration, 0)
+                summary[meta.id] = {
+                    "status": "error",
+                    "error": str(exc),
+                    "duration": round(duration, 1),
+                }
+
+    # ── Post-ingest steps (each opens its own fresh session) ───────────
+    with get_db_ctx() as db:
+        try:
+            logger.info("--- Computing daily basket index ---")
+            update_basket_index(db)
+        except Exception:
+            logger.exception("Basket index computation failed (non-fatal)")
+
+        try:
+            logger.info("--- Running anomaly detection ---")
+            anomalies = detect_anomalies(db)
+            summary["_anomalies"] = {
+                "count": len(anomalies),
+                "types": _anomaly_type_counts(anomalies),
             }
-        except Exception as exc:
-            duration = time.monotonic() - t0
-            logger.exception("Ingest failed for %s", meta.id)
-            db.rollback()
-            _upsert_ingest_log(db, today, meta.id, duration, 0)
-            summary[meta.id] = {
-                "status": "error",
-                "error": str(exc),
-                "duration": round(duration, 1),
+        except Exception:
+            logger.exception("Anomaly detection failed (non-fatal)")
+
+        try:
+            logger.info("--- Running data health checks ---")
+            health = run_health_checks(db, summary)
+            summary["_health"] = {
+                "global_status": health.global_status,
+                "basket_ok": health.basket_ok,
+                "history_ok": health.history_ok,
             }
-
-    # Compute daily basket index after all retailers are ingested
-    try:
-        logger.info("--- Computing daily basket index ---")
-        update_basket_index(db)
-    except Exception:
-        logger.exception("Basket index computation failed (non-fatal)")
-
-    # Detect price anomalies
-    try:
-        logger.info("--- Running anomaly detection ---")
-        anomalies = detect_anomalies(db)
-        summary["_anomalies"] = {
-            "count": len(anomalies),
-            "types": _anomaly_type_counts(anomalies),
-        }
-    except Exception:
-        logger.exception("Anomaly detection failed (non-fatal)")
-
-    # Run post-ingestion health checks
-    try:
-        logger.info("--- Running data health checks ---")
-        health = run_health_checks(db, summary)
-        summary["_health"] = {
-            "global_status": health.global_status,
-            "basket_ok": health.basket_ok,
-            "history_ok": health.history_ok,
-        }
-    except Exception:
-        logger.exception("Health check failed (non-fatal)")
+        except Exception:
+            logger.exception("Health check failed (non-fatal)")
 
     return summary
 

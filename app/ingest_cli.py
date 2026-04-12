@@ -12,7 +12,6 @@ import sys
 
 from app.core.logging import get_logger
 from app.db.migrate import create_tables
-from app.db.session import get_db_ctx
 from app.services.ingest import is_retailer_ingest_key, run_full_ingest
 
 logger = get_logger(__name__)
@@ -27,8 +26,7 @@ def main() -> None:
     create_tables()
 
     logger.info("Starting full ingestion ...")
-    with get_db_ctx() as db:
-        summary = run_full_ingest(db)
+    summary = run_full_ingest()
 
     logger.info("Ingestion complete.")
     for retailer_id, info in summary.items():
