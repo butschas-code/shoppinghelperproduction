@@ -1,9 +1,16 @@
 import os
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+
+# Query params Neon’s pooler rejects when passed through libpq (no secret edits needed).
+_POSTGRES_QUERY_STRIP = frozenset({
+    "options",  # often contains -c idle_in_transaction_session_timeout → unsupported
+    "idle_in_transaction_session_timeout",
+})
 
 
 def _normalize_database_url(url: str) -> str:
@@ -17,7 +24,27 @@ def _normalize_database_url(url: str) -> str:
     return url
 
 
-DATABASE_URL: str = _normalize_database_url(os.getenv("DATABASE_URL", "sqlite:///prices.db"))
+def _strip_neon_incompatible_query_params(url: str) -> str:
+    """Remove pooler-rejected params from Postgres URLs so DATABASE_URL needs no manual edits."""
+    u = url.strip()
+    if u.startswith("sqlite"):
+        return u
+    if not u.startswith(("postgresql+psycopg://", "postgresql://", "postgres://")):
+        return u
+    parsed = urlparse(u)
+    if not parsed.query:
+        return u
+    kept = [
+        (k, v)
+        for k, v in parse_qsl(parsed.query, keep_blank_values=True)
+        if k.lower() not in _POSTGRES_QUERY_STRIP
+    ]
+    new_query = urlencode(kept)
+    return urlunparse(parsed._replace(query=new_query))
+
+
+_raw_db = os.getenv("DATABASE_URL", "sqlite:///prices.db")
+DATABASE_URL: str = _strip_neon_incompatible_query_params(_normalize_database_url(_raw_db))
 
 # Postgres (Neon, etc.): recycle pooled connections before idle/proxy timeouts close them.
 DATABASE_POOL_RECYCLE: int = int(os.getenv("DATABASE_POOL_RECYCLE", "300"))
