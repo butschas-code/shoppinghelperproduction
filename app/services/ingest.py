@@ -19,6 +19,11 @@ from app.services.product_type import detect_product_type
 logger = get_logger(__name__)
 
 
+def is_retailer_ingest_key(key: str) -> bool:
+    """True for per-adapter summary rows; False for metadata (_anomalies, _health)."""
+    return not key.startswith("_")
+
+
 def run_full_ingest(db: Session) -> dict[str, dict]:
     """Run ingestion for every registered adapter. Returns per-retailer summary."""
     summary: dict[str, dict] = {}

@@ -31,6 +31,7 @@ from app.core import config
 from app.core.logging import get_logger
 from app.core.retailer_meta import get_all_retailer_info
 from app.db.models import BasketIndex, IngestLog, PriceAnomaly, ProductOffer
+from app.services.ingest import is_retailer_ingest_key
 
 logger = get_logger(__name__)
 
@@ -85,6 +86,8 @@ class AlertCollector:
     ) -> None:
         threshold = min_products if min_products is not None else config.ALERT_MIN_PRODUCTS
         for retailer_id, info in summary.items():
+            if not is_retailer_ingest_key(retailer_id):
+                continue
             status = info.get("status", "?")
             count = info.get("count", 0)
 
@@ -153,6 +156,8 @@ class AlertCollector:
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
         for retailer_id, info in summary.items():
+            if not is_retailer_ingest_key(retailer_id):
+                continue
             current_dur = info.get("duration")
             if current_dur is None:
                 continue

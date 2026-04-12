@@ -13,7 +13,7 @@ import sys
 from app.core.logging import get_logger
 from app.db.migrate import create_tables
 from app.db.session import get_db_ctx
-from app.services.ingest import run_full_ingest
+from app.services.ingest import is_retailer_ingest_key, run_full_ingest
 
 logger = get_logger(__name__)
 
@@ -32,6 +32,8 @@ def main() -> None:
 
     logger.info("Ingestion complete.")
     for retailer_id, info in summary.items():
+        if not is_retailer_ingest_key(retailer_id):
+            continue
         status = info.get("status", "?")
         count = info.get("count", "-")
         logger.info("  %s: %s (offers: %s)", retailer_id, status, count)

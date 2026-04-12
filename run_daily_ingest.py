@@ -31,7 +31,7 @@ from app.core.logging import add_file_handler, get_logger  # noqa: E402
 from app.db.migrate import create_tables  # noqa: E402
 from app.db.session import get_db_ctx  # noqa: E402
 from app.services.alerts import AlertCollector  # noqa: E402
-from app.services.ingest import run_full_ingest  # noqa: E402
+from app.services.ingest import is_retailer_ingest_key, run_full_ingest  # noqa: E402
 
 LOG_FILE = PROJECT_ROOT / "logs" / "ingest.log"
 add_file_handler(LOG_FILE)
@@ -102,6 +102,8 @@ def main() -> int:
     all_ok = True
     total_products = 0
     for retailer_id, info in summary.items():
+        if not is_retailer_ingest_key(retailer_id):
+            continue
         status = info.get("status", "?")
         count = info.get("count", 0)
         if status == "ok":
