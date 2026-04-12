@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timezone
+from typing import Any
 
+from sqlalchemy import insert
+from sqlalchemy.exc import DisconnectionError, OperationalError
 from sqlalchemy.orm import Session
 
 from app.core import config
@@ -19,6 +22,67 @@ from app.services.normalize import generate_fingerprint
 from app.services.product_type import detect_product_type
 
 logger = get_logger(__name__)
+
+_INSERT_RETRIES = 4
+
+
+def _build_product_offer_rows(
+    retailer_id: str,
+    scraped_at: datetime,
+    offers: list[Any],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for dto in offers:
+        pt = detect_product_type(dto.title, dto.category_path or dto.category_root)
+        rows.append({
+            "retailer_id": retailer_id,
+            "scraped_at": scraped_at,
+            "title": dto.title,
+            "brand": dto.brand,
+            "size_text": dto.size_text,
+            "price": dto.price,
+            "unit_price": dto.unit_price,
+            "unit": dto.unit,
+            "url": dto.url,
+            "raw_json": dto.raw_json,
+            "source": dto.source,
+            "fingerprint": generate_fingerprint(
+                dto.title, retailer_id, dto.size_text,
+            ),
+            "product_type": pt or None,
+            "category_path": dto.category_path,
+            "category_root": dto.category_root,
+        })
+    return rows
+
+
+def _execute_offer_chunks(db: Session, rows: list[dict[str, Any]]) -> None:
+    """Bulk INSERT in small commits with retries on transient connection errors."""
+    if not rows:
+        return
+    table = ProductOffer.__table__
+    stmt = insert(table)
+    chunk_size = config.INGEST_COMMIT_BATCH
+    for start in range(0, len(rows), chunk_size):
+        chunk = rows[start : start + chunk_size]
+        end = start + len(chunk)
+        for attempt in range(_INSERT_RETRIES):
+            try:
+                db.execute(stmt, chunk)
+                db.commit()
+                logger.info("  … inserted %d/%d rows", end, len(rows))
+                break
+            except (OperationalError, DisconnectionError) as exc:
+                db.rollback()
+                if attempt >= _INSERT_RETRIES - 1:
+                    logger.exception("Chunk insert failed after %s attempts", _INSERT_RETRIES)
+                    raise
+                wait = 2**attempt
+                logger.warning(
+                    "DB chunk %d–%d failed (%s), retry in %ss: %s",
+                    start + 1, end, type(exc).__name__, wait, exc,
+                )
+                time.sleep(wait)
 
 
 def is_retailer_ingest_key(key: str) -> bool:
@@ -82,35 +146,8 @@ def run_full_ingest() -> dict[str, dict]:
                 len(offers), meta.id, duration,
             )
             try:
-                batch = config.INGEST_COMMIT_BATCH
-                for i, dto in enumerate(offers, start=1):
-                    product_type = detect_product_type(
-                        dto.title, dto.category_path or dto.category_root
-                    )
-                    db.add(ProductOffer(
-                        retailer_id=meta.id,
-                        scraped_at=now,
-                        title=dto.title,
-                        brand=dto.brand,
-                        size_text=dto.size_text,
-                        price=dto.price,
-                        unit_price=dto.unit_price,
-                        unit=dto.unit,
-                        url=dto.url,
-                        raw_json=dto.raw_json,
-                        source=dto.source,
-                        fingerprint=generate_fingerprint(
-                            dto.title, meta.id, dto.size_text,
-                        ),
-                        product_type=product_type or None,
-                        category_path=dto.category_path,
-                        category_root=dto.category_root,
-                    ))
-                    if i % batch == 0:
-                        db.commit()
-                        logger.info("  … committed %d/%d rows", i, len(offers))
-                if len(offers) == 0 or len(offers) % batch != 0:
-                    db.commit()
+                rows = _build_product_offer_rows(meta.id, now, offers)
+                _execute_offer_chunks(db, rows)
                 _upsert_ingest_log(db, today, meta.id, duration, len(offers))
                 summary[meta.id] = {
                     "status": "ok",

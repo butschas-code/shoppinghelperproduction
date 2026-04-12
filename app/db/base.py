@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import StaticPool
 
-from app.core.config import DATABASE_POOL_RECYCLE, DATABASE_URL
+from app.core.config import DATABASE_POOL_RECYCLE, DATABASE_URL, PG_IDLE_IN_TRANSACTION_MS
 
 _URL = str(DATABASE_URL)
 _is_sqlite = _URL.startswith("sqlite")
@@ -22,12 +22,16 @@ def _engine_kwargs() -> dict:
         kw["pool_size"] = 5
         kw["max_overflow"] = 10
         kw["pool_recycle"] = DATABASE_POOL_RECYCLE
+        # Session-level GUCs: long bulk inserts must not trip idle-in-transaction kills (Neon, etc.).
+        _idle_ms = max(0, PG_IDLE_IN_TRANSACTION_MS)
+        _opts = f"-c idle_in_transaction_session_timeout={_idle_ms}"
         kw["connect_args"] = {
             "connect_timeout": 30,
             "keepalives": 1,
             "keepalives_idle": 30,
             "keepalives_interval": 10,
             "keepalives_count": 5,
+            "options": _opts,
         }
     return kw
 

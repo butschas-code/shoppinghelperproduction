@@ -22,9 +22,13 @@ DATABASE_URL: str = _normalize_database_url(os.getenv("DATABASE_URL", "sqlite://
 # Postgres (Neon, etc.): recycle pooled connections before idle/proxy timeouts close them.
 DATABASE_POOL_RECYCLE: int = int(os.getenv("DATABASE_POOL_RECYCLE", "300"))
 
-# Ingest: commit every N offers so one retailer does not hold a single huge transaction
-# (reduces "SSL connection has been closed unexpectedly" on long inserts).
-INGEST_COMMIT_BATCH: int = max(1, int(os.getenv("INGEST_COMMIT_BATCH", "1000")))
+# Ingest: rows per INSERT batch (core executemany). Smaller = shorter transactions
+# (helps Neon idle_in_transaction_session_timeout and SSL stability).
+INGEST_COMMIT_BATCH: int = max(1, int(os.getenv("INGEST_COMMIT_BATCH", "150")))
+
+# Postgres: raise server idle-in-transaction limit for this app's sessions (milliseconds).
+# Neon defaults are often ~60s; bulk inserts + ORM can exceed that without smaller batches.
+PG_IDLE_IN_TRANSACTION_MS: int = int(os.getenv("PG_IDLE_IN_TRANSACTION_MS", "900000"))
 
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 

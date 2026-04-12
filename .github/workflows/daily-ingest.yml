@@ -61,7 +61,8 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           LOG_LEVEL: INFO
-          # Shorter Postgres transactions + fresher pooled connections (Neon / SSL drops).
-          INGEST_COMMIT_BATCH: "500"
+          # Small bulk-insert chunks + long idle-in-tx limit (Neon SSL / idle_in_transaction).
+          INGEST_COMMIT_BATCH: "150"
           DATABASE_POOL_RECYCLE: "300"
+          PG_IDLE_IN_TRANSACTION_MS: "900000"
         run: python run_daily_ingest.py
