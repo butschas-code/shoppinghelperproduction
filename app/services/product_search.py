@@ -41,8 +41,9 @@ OFFERS_CACHE_TTL = 60.0
 SCORE_TITLE_STARTS_PRIMARY = 100
 SCORE_FIRST_WORD_PRIMARY = 60
 SCORE_CONTAINS_PRIMARY = 30
-SCORE_CONTAINS_EXCLUDE = -80
-SCORE_CATEGORY_MISMATCH = -40
+SCORE_CONTAINS_EXCLUDE = -80  # legacy — excludes are now hard rejects, see _score_offer
+SCORE_CATEGORY_MISMATCH = -40  # legacy — classifier mismatches are now hard rejects
+HARD_REJECT = -10_000
 
 _offers_cache: list[ProductOffer] = []
 _offers_cache_time: float = 0
@@ -167,41 +168,57 @@ def _score_offer(
     intent_key: str,
     title_norm: str,
 ) -> int:
-    """Score a single offer for the given intent. Higher = better match."""
+    """Score a single offer for the given intent. Higher = better match.
+
+    Hard rejects (return HARD_REJECT sentinel < 0) when:
+      - Any exclude root is present (word boundary match).
+      - Classifier confidently returns a different, non-related product type.
+    These cannot be overridden by a +100 primary-start match — a single
+    wrong-category word must veto the result, otherwise "Ābolu konfekte"
+    scores +100 -80 = +20 and contaminates an "apple" search.
+    """
     config = get_intent_config(intent_key)
     if not config:
         return 0
     primary = [normalize_text(r) for r in config["primary_roots"]]
     exclude = [normalize_text(r) for r in config["exclude_roots"]]
-    score = 0
 
+    # Hard reject on any exclude root — non-negotiable.
+    # Roots are stems ("sokolad", "konfekt", "dzerien") meant to match inflected
+    # forms ("sokolāde", "konfekte", "dzeriens"). Match at word *start* only
+    # (\bROOT) — a full-word \b...\b would miss "sokolade" entirely because
+    # there's no boundary between 'd' and 'e'.
+    for root in exclude:
+        if root and re.search(r"\b" + re.escape(root), title_norm):
+            return HARD_REJECT
+
+    # Hard reject on classifier disagreement (confident, unrelated type).
+    classified = detect_product_type_from_title(offer.title)
+    if classified and classified != intent_key:
+        related = set(RELATED_PRODUCT_TYPES.get(intent_key, []))
+        if classified not in related:
+            return HARD_REJECT
+
+    score = 0
     first_word = title_norm.split()[0] if title_norm.split() else ""
 
     for root in primary:
         if not root:
             continue
-        if title_norm.startswith(root + " ") or title_norm.startswith(root):
+        # Prefix match anchored at the title start (word boundary).
+        if title_norm == root or title_norm.startswith(root + " "):
             score += SCORE_TITLE_STARTS_PRIMARY
             break
-        if first_word.startswith(root) or root in first_word:
+        # First-word prefix only (no substring — "apple" must not match "pineapple").
+        if first_word.startswith(root):
             score += SCORE_FIRST_WORD_PRIMARY
             break
     if score == 0:
         for root in primary:
-            if root and re.search(r"\b" + re.escape(root) + r"\b", title_norm):
+            # Prefix-at-word-start match so stems ("aboli") also match "abolos", etc.
+            if root and re.search(r"\b" + re.escape(root), title_norm):
                 score += SCORE_CONTAINS_PRIMARY
                 break
-
-    for root in exclude:
-        if root and re.search(r"\b" + re.escape(root) + r"\b", title_norm):
-            score += SCORE_CONTAINS_EXCLUDE
-            break
-
-    classified = detect_product_type_from_title(offer.title)
-    if classified and classified != intent_key:
-        related = set(RELATED_PRODUCT_TYPES.get(intent_key, []))
-        if classified not in related:
-            score += SCORE_CATEGORY_MISMATCH
 
     return score
 
@@ -222,6 +239,7 @@ def _intent_search(
         pq.fat_pct is not None
         or pq.volume_ml is not None
         or pq.weight_g is not None
+        or pq.count is not None
     )
 
     config = get_intent_config(intent_key)
@@ -250,7 +268,10 @@ def _intent_search(
             continue
         title_norm = normalize_text(offer.title)
         score = _score_offer(offer, intent_key, title_norm)
-        if score < 0:
+        # Require positive primary-root evidence. score==0 means the offer
+        # passed category+exclude checks but nothing in the title matches the
+        # intent's primary roots — drop it rather than show noise.
+        if score <= 0:
             continue
         scored.append((offer, score))
 
@@ -403,9 +424,23 @@ def search_products_multi(
 
     fallback_message = "fallback"
     pq = parse_grocery_query(q)
+    has_attr = (
+        pq.fat_pct is not None
+        or pq.volume_ml is not None
+        or pq.weight_g is not None
+        or pq.count is not None
+    )
     search_text = pq.expanded_core or expand_query_for_search(q)
     scored: list[tuple[ProductOffer, float]] = []
     for offer in offers:
+        # When the user specifies volume / weight / fat% / count, the strict
+        # attribute gate applies even without a detected intent. "1l milk 2%"
+        # must never return 500 ml or 1,5 % products, regardless of intent
+        # detection. Same rule for any product type.
+        if has_attr and not passes_attribute_constraints(
+            pq, offer.title, None, size_text=offer.size_text,
+        ):
+            continue
         s = _fuzzy_score(search_text, offer, raw_query=q)
         if s < SEARCH_THRESHOLD:
             continue

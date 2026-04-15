@@ -56,6 +56,10 @@ PRODUCT_INTENTS: dict[str, dict[str, list[str]]] = {
             "krauksk", "cips",
             "pudin", "merce", "kokteil",
             "cal",
+            # Flavoured milk drinks ("piena dzēriens", "piens kakao") are not plain milk.
+            "dzerien",
+            "biezpien",  # cottage cheese
+            "kefir",
         ],
     },
     "yogurt": {
@@ -73,7 +77,9 @@ PRODUCT_INTENTS: dict[str, dict[str, list[str]]] = {
     },
     "chicken": {
         "terms": ["chicken", "vista", "vistas", "fileja"],
-        "primary_roots": ["vista", "vistas", "fileja", "chicken"],
+        # "fileja" (fillet) is ambiguous — fish fillets match too. Match chicken
+        # via "vista*" stem; fish fillets will be handled by the fish intent.
+        "primary_roots": ["vista", "vistas", "chicken"],
         "exclude_roots": [
             "cips", "zupa", "garsa", "buljons", "saldējums", "saldejums",
             "desa", "desin", "cisin", "pastet", "pelmen", "frikadel",
@@ -237,7 +243,9 @@ PRODUCT_INTENTS: dict[str, dict[str, list[str]]] = {
     },
     "beef": {
         "terms": ["beef", "liellops", "gala"],
-        "primary_roots": ["gala", "liellops", "beef"],
+        # "gala" alone just means "meat" in Latvian — it matches pork, chicken, fish,
+        # sausages, everything. Anchor beef on "liellop*" (beef-specific root).
+        "primary_roots": ["liellop", "liellops", "liellopa", "beef"],
         "exclude_roots": [
             "vista", "cuka", "zivis",
             "desa", "cisin", "pastet", "pelmen", "konserv",
@@ -255,8 +263,9 @@ PRODUCT_INTENTS: dict[str, dict[str, list[str]]] = {
     },
     "minced_meat": {
         "terms": ["minced", "ground meat", "malta gaļa", "malta gala", "farš", "fars"],
-        "primary_roots": ["malta gala", "minced", "fars", "gala"],
-        "exclude_roots": ["vista", "desert"],
+        # "gala" alone is just "meat" — anchor minced on "malt*" / "fars".
+        "primary_roots": ["malta gala", "malta", "maltas", "minced", "fars", "farš"],
+        "exclude_roots": ["desert", "zupa", "buljons", "konserv"],
     },
 }
 

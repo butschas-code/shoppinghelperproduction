@@ -51,7 +51,8 @@ RULES: list[_Rule] = [
          "kakao", "cepumi", "iebiezināts", "kondensētais",
          "desa", "desiņas", "desinas", "kraukšķi", "kraukski",
          "čipsi", "cipsi", "pudiņš", "pudins", "mērce", "merce",
-         "konfekte", "batons", "deserts"], True),
+         "konfekte", "batons", "deserts",
+         "dzeriens", "dzēriens", "biezpiens", "kefīrs", "kefirs"], True),
     # Eggs
     _r("eggs", ["olas", "ola", "eggs", "egg"],
         ["majonēze", "cepumi", "deserts", "pudiņš"], False),

@@ -9,6 +9,15 @@ import unittest
 
 from app.services.product_type_detector import detect_product_type
 from app.services.product_classifier import detect_product_type_from_title
+from app.services.normalize import normalize_text
+from app.services.product_search import _score_offer, HARD_REJECT
+
+
+class _Offer:
+    """Minimal stand-in for ProductOffer used by _score_offer."""
+    def __init__(self, title: str, product_type: str | None = None):
+        self.title = title
+        self.product_type = product_type
 
 
 class TestProductTypeDetector(unittest.TestCase):
@@ -68,6 +77,52 @@ class TestProductClassifier(unittest.TestCase):
     def test_coffee(self):
         self.assertEqual(detect_product_type_from_title("Kafija melna"), "coffee")
         self.assertEqual(detect_product_type_from_title("Coffee beans 250g"), "coffee")
+
+
+class TestScoreOfferRejects(unittest.TestCase):
+    """Bad-result regressions — titles that used to leak into intent results."""
+
+    def _score(self, title: str, intent: str) -> int:
+        return _score_offer(_Offer(title), intent, normalize_text(title))
+
+    def test_apple_candy_rejected_for_apple_intent(self):
+        # "Ābolu konfekte" used to score +100 (starts "aboli") -80 (konfekt) = +20.
+        self.assertEqual(self._score("Ābolu konfekte 100g", "apple"), HARD_REJECT)
+
+    def test_apple_chips_rejected_for_apple_intent(self):
+        self.assertEqual(self._score("Ābolu čipsi 50g", "apple"), HARD_REJECT)
+
+    def test_pineapple_not_matched_as_apple(self):
+        # "pineapple" contains "apple" — the old substring first-word check
+        # would score +60. Classifier returns None for this title, so the
+        # only safeguard is the prefix-only primary-root match.
+        self.assertLessEqual(self._score("Pineapple 1kg", "apple"), 0)
+
+    def test_milk_drink_rejected_for_milk_intent(self):
+        # "Piena dzēriens" (flavoured milk drink) is not plain milk.
+        self.assertEqual(self._score("Piena dzēriens šokolādes 1L", "milk"), HARD_REJECT)
+
+    def test_chocolate_milk_rejected_for_milk_intent(self):
+        self.assertEqual(self._score("Piena šokolāde 100g", "milk"), HARD_REJECT)
+
+    def test_sausage_not_matched_as_beef(self):
+        # "gala" is no longer a primary root for beef; a sausage must not
+        # score as beef.
+        self.assertLessEqual(self._score("Vistas gaļas desa 400g", "beef"), 0)
+
+    def test_fish_fillet_not_matched_as_chicken(self):
+        # "fileja" is no longer a chicken primary root.
+        self.assertLessEqual(self._score("Laša fileja 200g", "chicken"), 0)
+
+    def test_plain_milk_still_matches(self):
+        self.assertGreater(self._score("Piens 2.5% 1L", "milk"), 0)
+
+    def test_plain_apple_still_matches(self):
+        self.assertGreater(self._score("Āboli 1kg", "apple"), 0)
+
+    def test_plain_chicken_fillet_still_matches(self):
+        # Chicken fillet should still match chicken intent via "vistas" prefix.
+        self.assertGreater(self._score("Vistas fileja 500g", "chicken"), 0)
 
 
 if __name__ == "__main__":

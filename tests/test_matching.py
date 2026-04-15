@@ -220,6 +220,62 @@ class TestPassesAttributeConstraints:
         pq = parse_grocery_query("milk")
         assert passes_attribute_constraints(pq, "Anything at all", "milk")
 
+    # ── strict EXACT matching (no soft tolerance) ───────────────────
+
+    def test_milk_1l_2pct_rejects_500ml(self) -> None:
+        # "1l milk 2.0% fat" must NOT match 500ml bottle, even with correct fat.
+        pq = parse_grocery_query("1l milk 2.0% fat")
+        assert not passes_attribute_constraints(pq, "Piens 2% 500ml", "milk")
+
+    def test_milk_1l_2pct_rejects_15pct(self) -> None:
+        # 1.5% is close but not equal to 2.0% — must reject under strict mode.
+        pq = parse_grocery_query("1l milk 2.0% fat")
+        assert not passes_attribute_constraints(pq, "Piens 1.5% 1L", "milk")
+
+    def test_milk_1l_2pct_accepts_exact_match_en(self) -> None:
+        pq = parse_grocery_query("1l milk 2.0% fat")
+        assert passes_attribute_constraints(pq, "Piens 2.0% 1L", "milk")
+
+    def test_milk_exact_match_lv(self) -> None:
+        # Latvian query form "piens 2,0% 1l" with LV fat label "tauku".
+        pq = parse_grocery_query("piens 2,0% tauku 1l")
+        assert passes_attribute_constraints(pq, "Piens 2.0% 1L", "milk")
+        assert not passes_attribute_constraints(pq, "Piens 2.5% 1L", "milk")
+        assert not passes_attribute_constraints(pq, "Piens 2.0% 500ml", "milk")
+
+    def test_volume_unit_conversion_1l_equals_1000ml(self) -> None:
+        # User types "1l", title says "1000ml" — still an exact volume match.
+        pq = parse_grocery_query("1l milk 2.0% fat")
+        assert passes_attribute_constraints(pq, "Piens 2.0% 1000ml", "milk")
+
+    def test_count_exact_match_en(self) -> None:
+        pq = parse_grocery_query("10 pcs eggs")
+        assert pq.count == 10
+        assert passes_attribute_constraints(pq, "Olas M 10 pcs", "eggs")
+        assert not passes_attribute_constraints(pq, "Olas M 6 pcs", "eggs")
+
+    def test_count_exact_match_lv(self) -> None:
+        # Latvian form: "10 gab olas"
+        pq = parse_grocery_query("10 gab olas")
+        assert pq.count == 10
+        assert passes_attribute_constraints(pq, "Olas L 10 gab", "eggs")
+        assert not passes_attribute_constraints(pq, "Olas L 6 gab", "eggs")
+
+    def test_count_without_unit_in_title_rejected(self) -> None:
+        pq = parse_grocery_query("10 gab olas")
+        # No explicit count in title — must reject under strict count mode.
+        assert not passes_attribute_constraints(pq, "Olas svaigas", "eggs")
+
+    # ── attribute gate applies without intent (fallback branch) ─────
+
+    def test_attribute_gate_without_intent(self) -> None:
+        # "coconut water" doesn't map to a built-in intent, but "1l" must
+        # still filter candidates in the fuzzy fallback.
+        pq = parse_grocery_query("coconut water 1l")
+        assert pq.volume_ml == 1000
+        assert not passes_attribute_constraints(pq, "Coconut water 330ml", None)
+        assert passes_attribute_constraints(pq, "Coconut water 1L", None)
+
 
 # ── match_product (basket matching) ────────────────────────────────
 

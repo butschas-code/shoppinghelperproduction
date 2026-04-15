@@ -117,6 +117,12 @@ def parse_grocery_query(query: str) -> ParsedQuery:
 _TITLE_FAT_RE = re.compile(r"(\d+[.,]?\d*)\s*%")
 _TITLE_VOL_RE = re.compile(r"(\d+[.,]?\d*)\s*(ml|l)\b", re.IGNORECASE)
 _TITLE_WT_RE = re.compile(r"(\d+[.,]?\d*)\s*(g|kg)\b", re.IGNORECASE)
+# Count: explicit "N gab" (LV), "N pcs" / "N pieces" (EN) — anchored to a unit,
+# so "2kg" never gets misread as count=2.
+_TITLE_COUNT_RE = re.compile(
+    r"(\d+)\s*(gab|gb|pcs|pc|piece|pieces|x)\b",
+    re.IGNORECASE,
+)
 
 
 # Typical milk / cream fat % in titles (avoid matching "12%" nutrition noise).
@@ -154,14 +160,25 @@ def extract_title_weight_g(title: str) -> float | None:
     return None
 
 
+def extract_title_count(title: str) -> int | None:
+    """First explicit count in the title (N gab, N pcs, N pieces, Nx)."""
+    m = _TITLE_COUNT_RE.search(title)
+    return int(m.group(1)) if m else None
+
+
 # ── strict attribute filter (intent search) ─────────────────────────
 #
-# When the user query contains fat %, volume, or weight, *every* candidate
-# must demonstrably match those numbers.  Applies to ALL product intents
-# (milk, yogurt, chicken, cheese, …) — not just milk.
-
-_FAT_MATCH_TOLERANCE = 0.45   # 2.0% matches 1.55–2.45%
-_SIZE_RATIO_MIN      = 0.85   # 1 L matches down to ~850 ml
+# When the user query contains fat %, volume, weight, or count, *every*
+# candidate must demonstrably match those numbers EXACTLY (within minimal
+# tolerance for decimal rounding / unit conversion). Applies to ALL product
+# intents (milk, yogurt, chicken, cheese, …) and also to the no-intent
+# fuzzy fallback — "1L milk 2.0% fat" must never show 1.5% or 500ml results.
+#
+# Tolerances are deliberately tight:
+#   - fat_pct ±0.1 absorbs "2.0" vs "2" and "2,0" vs "2.0" but rejects 2.5 vs 2.0
+#   - size ratio ≥0.98 absorbs 1000ml↔1L unit conversion noise only
+_FAT_MATCH_TOLERANCE = 0.1
+_SIZE_RATIO_MIN      = 0.98
 
 # Extra normalized substrings that mark a "milk" title as *not* plain
 # drinking milk.  Supplements the intent's own exclude_roots.
@@ -210,8 +227,9 @@ def passes_attribute_constraints(
     has_fat = pq.fat_pct is not None
     has_vol = pq.volume_ml is not None
     has_wt  = pq.weight_g is not None
+    has_ct  = pq.count is not None
 
-    if not (has_fat or has_vol or has_wt):
+    if not (has_fat or has_vol or has_wt or has_ct):
         return True
 
     raw = title or ""
@@ -257,6 +275,12 @@ def passes_attribute_constraints(
         hi, lo = max(pq.weight_g, tw), min(pq.weight_g, tw)
         ratio = lo / hi if hi else 0.0
         if ratio < _SIZE_RATIO_MIN:
+            return False
+
+    # ── 6. Count — exact match (e.g. "10 eggs" → title must show 10 gab/pcs)
+    if has_ct:
+        tc = extract_title_count(combined)
+        if tc is None or tc != pq.count:
             return False
 
     return True
